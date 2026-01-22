@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NCA Performance Appraisal Progress Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- Add jsPDF and html2canvas libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -44,6 +53,7 @@
             border-radius: 10px;
             margin-bottom: 30px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         
         h1 {
@@ -1214,11 +1224,144 @@
         .preset-btn:hover {
             background-color: rgba(255, 255, 255, 0.2);
         }
+
+        /* PDF Generation Progress */
+        .pdf-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            color: white;
+            font-size: 1.2rem;
+            gap: 20px;
+        }
+
+        .pdf-progress.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-text {
+            margin-top: 10px;
+        }
+
+        /* Print styling */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            
+            .print-section, .print-section * {
+                visibility: visible;
+            }
+            
+            .print-section {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* Firebase User Info Styles */
+        .user-info {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-badge {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .login-btn {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logout-btn {
+            background-color: var(--danger-color);
+        }
+
+        .sync-status {
+            font-size: 0.8rem;
+            margin-top: 5px;
+            text-align: right;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .synced {
+            color: #27ae60;
+        }
+
+        .syncing {
+            color: #f39c12;
+        }
+
+        .offline {
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
+            <!-- Firebase User Info Section -->
+            <div class="user-info">
+                <div id="user-display" style="display: none;">
+                    <div class="user-badge">
+                        <i class="fas fa-user"></i>
+                        <span id="user-email">Loading...</span>
+                    </div>
+                    <div class="sync-status" id="sync-status">
+                        <i class="fas fa-sync"></i> <span id="sync-text">Connecting...</span>
+                    </div>
+                </div>
+                <button id="login-btn" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </div>
+
             <h1><i class="fas fa-chart-line"></i> NCA Performance Appraisal Progress Dashboard</h1>
             <p class="subtitle">Track your performance objectives, key action points, and KPIs to stay on target</p>
             <div class="date-info">
@@ -1355,6 +1498,15 @@
             </div>
         </div>
         
+        <!-- PDF Generation Progress Modal -->
+        <div class="pdf-progress hidden" id="pdf-progress">
+            <div class="spinner"></div>
+            <div class="progress-text">Generating PDF report...</div>
+            <div id="pdf-progress-details" style="font-size: 0.9rem; margin-top: 10px; text-align: center; max-width: 300px;">
+                Please wait while we prepare your report. This may take a moment.
+            </div>
+        </div>
+        
         <!-- Calendar Modal -->
         <div class="calendar-modal" id="calendar-modal" style="display: none;">
             <div class="calendar-header">
@@ -1406,12 +1558,44 @@
                     </div>
                     
                     <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Attachments List:</label>
+                        <div>
+                            <input type="radio" id="attachments-yes" name="include-attachments" value="yes" checked>
+                            <label for="attachments-yes" style="margin-right: 15px;">Yes, include attachments list</label>
+                            <input type="radio" id="attachments-no" name="include-attachments" value="no">
+                            <label for="attachments-no">No, exclude attachments</label>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; font-weight: 600;">Page Orientation:</label>
                         <div>
                             <input type="radio" id="orientation-portrait" name="orientation" value="portrait" checked>
                             <label for="orientation-portrait" style="margin-right: 15px;">Portrait</label>
                             <input type="radio" id="orientation-landscape" name="orientation" value="landscape">
                             <label for="orientation-landscape">Landscape</label>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Page Size:</label>
+                        <div>
+                            <select id="page-size" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px;">
+                                <option value="a4">A4 (210mm × 297mm)</option>
+                                <option value="letter">Letter (8.5in × 11in)</option>
+                                <option value="legal">Legal (8.5in × 14in)</option>
+                                <option value="a3">A3 (297mm × 420mm)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Date Range:</label>
+                        <div>
+                            <input type="radio" id="date-range-yes" name="include-date-range" value="yes" checked>
+                            <label for="date-range-yes" style="margin-right: 15px;">Yes, include review period</label>
+                            <input type="radio" id="date-range-no" name="include-date-range" value="no">
+                            <label for="date-range-no">No, exclude date range</label>
                         </div>
                     </div>
                 </div>
@@ -1465,7 +1649,288 @@
         </div>
     </div>
 
+    <!-- Print Section (hidden until needed) -->
+    <div id="print-section" class="print-section" style="display: none;"></div>
+
     <script>
+        // =================== FIREBASE CONFIGURATION ===================
+        // TODO: Replace with your Firebase config from console.firebase.google.com
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // Firebase state
+        let currentUserId = null;
+        let isOnline = true;
+        let unsavedChanges = false;
+        let lastSynced = null;
+        let realtimeUnsubscribe = null;
+        
+        // =================== FIREBASE FUNCTIONS ===================
+        
+        // Initialize Firebase Auth
+        function initFirebaseAuth() {
+            // Listen for auth state changes
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    // User is signed in
+                    currentUserId = user.uid;
+                    document.getElementById('user-email').textContent = user.email || 'Anonymous User';
+                    document.getElementById('user-display').style.display = 'flex';
+                    document.getElementById('login-btn').innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
+                    document.getElementById('login-btn').classList.add('logout-btn');
+                    document.getElementById('login-btn').onclick = signOut;
+                    
+                    // Load data from Firebase
+                    loadFromFirebase();
+                    startRealtimeSync();
+                } else {
+                    // User is signed out
+                    currentUserId = null;
+                    document.getElementById('user-display').style.display = 'none';
+                    document.getElementById('login-btn').innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                    document.getElementById('login-btn').classList.remove('logout-btn');
+                    document.getElementById('login-btn').onclick = signIn;
+                    
+                    // Stop realtime sync
+                    stopRealtimeSync();
+                    
+                    // Load from localStorage as fallback
+                    loadSavedData();
+                    
+                    updateSyncStatus('offline', 'Not signed in - using local storage');
+                }
+            });
+        }
+        
+        // Sign in with Google (or other providers)
+        function signIn() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    console.log("Signed in as:", result.user.email);
+                    showNotification('Signed in successfully');
+                })
+                .catch((error) => {
+                    console.error("Sign in error:", error);
+                    // Fallback to anonymous auth
+                    auth.signInAnonymously()
+                        .then(() => {
+                            console.log("Signed in anonymously");
+                            showNotification('Signed in as guest');
+                        })
+                        .catch((anonError) => {
+                            console.error("Anonymous auth error:", anonError);
+                            alert("Could not sign in. Using local storage only.");
+                            updateSyncStatus('offline', 'Authentication failed - using local storage');
+                        });
+                });
+        }
+        
+        // Sign out
+        function signOut() {
+            // Save any unsaved changes before signing out
+            if (unsavedChanges) {
+                saveToLocalStorage();
+            }
+            
+            auth.signOut()
+                .then(() => {
+                    console.log("Signed out");
+                    showNotification('Signed out');
+                })
+                .catch((error) => {
+                    console.error("Sign out error:", error);
+                });
+        }
+        
+        // Load data from Firebase
+        async function loadFromFirebase() {
+            try {
+                updateSyncStatus('syncing', 'Loading from cloud...');
+                
+                const docRef = db.collection('appraisalData').doc('shared');
+                const doc = await docRef.get();
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    // Merge with local data if needed
+                    if (data.objectivesData) {
+                        objectivesData.length = 0;
+                        data.objectivesData.forEach(obj => objectivesData.push(obj));
+                        
+                        // Update review period if exists
+                        if (data.reviewPeriod) {
+                            reviewPeriod = data.reviewPeriod;
+                            updatePeriodDisplay();
+                        }
+                        
+                        // Update last synced timestamp
+                        lastSynced = data.lastUpdated ? data.lastUpdated.toDate() : new Date();
+                        
+                        renderObjectives();
+                        updateStats();
+                        showNotification('Data loaded from cloud');
+                        updateSyncStatus('synced', `Synced ${formatTimeAgo(lastSynced)}`);
+                    }
+                } else {
+                    // No data in Firebase yet, save local data
+                    console.log("No data in Firebase, creating initial document");
+                    await saveToFirebase();
+                }
+            } catch (error) {
+                console.error("Error loading from Firebase:", error);
+                updateSyncStatus('offline', 'Cloud sync failed. Using local data.');
+                
+                // Fallback to localStorage
+                loadSavedData();
+            }
+        }
+        
+        // Save data to Firebase
+        async function saveToFirebase() {
+            if (!currentUserId) {
+                console.log("Not signed in, saving locally instead");
+                saveToLocalStorage();
+                return false;
+            }
+            
+            try {
+                updateSyncStatus('syncing', 'Saving to cloud...');
+                
+                const dataToSave = {
+                    objectivesData: objectivesData,
+                    reviewPeriod: reviewPeriod,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUserId
+                };
+                
+                await db.collection('appraisalData').doc('shared').set(dataToSave);
+                
+                unsavedChanges = false;
+                lastSynced = new Date();
+                updateSyncStatus('synced', `Synced ${formatTimeAgo(lastSynced)}`);
+                
+                return true;
+            } catch (error) {
+                console.error("Error saving to Firebase:", error);
+                updateSyncStatus('offline', 'Cloud save failed. Saved locally.');
+                
+                // Fallback to localStorage
+                saveToLocalStorage();
+                return false;
+            }
+        }
+        
+        // Start real-time sync
+        function startRealtimeSync() {
+            if (realtimeUnsubscribe) {
+                stopRealtimeSync();
+            }
+            
+            realtimeUnsubscribe = db.collection('appraisalData').doc('shared')
+                .onSnapshot((doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        const remoteTimestamp = data.lastUpdated ? data.lastUpdated.toDate() : new Date();
+                        
+                        // Only update if remote data is newer and we don't have unsaved changes
+                        if (!lastSynced || remoteTimestamp > lastSynced) {
+                            if (!unsavedChanges) {
+                                console.log("New data from cloud detected");
+                                
+                                // Update data
+                                if (data.objectivesData) {
+                                    objectivesData.length = 0;
+                                    data.objectivesData.forEach(obj => objectivesData.push(obj));
+                                    
+                                    if (data.reviewPeriod) {
+                                        reviewPeriod = data.reviewPeriod;
+                                        updatePeriodDisplay();
+                                    }
+                                    
+                                    renderObjectives();
+                                    updateStats();
+                                    lastSynced = remoteTimestamp;
+                                    updateSyncStatus('synced', `Auto-synced ${formatTimeAgo(lastSynced)}`);
+                                    showNotification('Data updated from cloud');
+                                }
+                            } else {
+                                console.log("Ignoring cloud update due to unsaved local changes");
+                            }
+                        }
+                    }
+                }, (error) => {
+                    console.error("Realtime sync error:", error);
+                    updateSyncStatus('offline', 'Realtime sync disconnected');
+                });
+        }
+        
+        // Stop real-time sync
+        function stopRealtimeSync() {
+            if (realtimeUnsubscribe) {
+                realtimeUnsubscribe();
+                realtimeUnsubscribe = null;
+            }
+        }
+        
+        // Update sync status display
+        function updateSyncStatus(status, message) {
+            const statusEl = document.getElementById('sync-status');
+            const textEl = document.getElementById('sync-text');
+            
+            statusEl.className = 'sync-status ' + status;
+            textEl.textContent = message;
+            
+            if (status === 'offline') {
+                isOnline = false;
+            } else {
+                isOnline = true;
+            }
+        }
+        
+        // Format time ago
+        function formatTimeAgo(date) {
+            if (!date) return 'Never';
+            
+            const now = new Date();
+            const diffMs = now - new Date(date);
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            
+            if (diffMins < 1) return 'just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            
+            return new Date(date).toLocaleDateString();
+        }
+        
+        // Modified save function that tries Firebase first
+        async function saveProgress() {
+            if (currentUserId && isOnline) {
+                const saved = await saveToFirebase();
+                if (saved) {
+                    showNotification('Progress saved to cloud!');
+                }
+            } else {
+                saveToLocalStorage();
+                showNotification('Progress saved locally (offline mode)');
+            }
+        }
+        
+        // =================== ORIGINAL DATA AND STATE ===================
+        
         // Simplified data structure with full functionality
         const objectivesData = [
             {
@@ -1611,19 +2076,50 @@
             inputTarget: null // 'start' or 'end'
         };
         
-        // File size limit (5MB)
-        const MAX_FILE_SIZE = 5 * 1024 * 1024;
-        
-        // Supported file types for preview
-        const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        const PDF_TYPES = ['application/pdf'];
-        const TEXT_TYPES = ['text/plain', 'text/html', 'text/css', 'text/javascript', 'application/json'];
-        
         // Month names
         const monthNames = [
             'January', 'February', 'March', 'April', 'May', 'June',
             'July', 'August', 'September', 'October', 'November', 'December'
         ];
+        
+        // =================== MODIFIED EXISTING FUNCTIONS ===================
+        
+        // Update your existing saveToLocalStorage function
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('objectivesDashboardData', JSON.stringify(objectivesData));
+                localStorage.setItem('reviewPeriod', JSON.stringify(reviewPeriod));
+                localStorage.setItem('lastLocalSave', new Date().toISOString());
+                unsavedChanges = true;
+            } catch (e) {
+                console.error('Error saving to localStorage:', e);
+            }
+        }
+        
+        // Update your existing loadSavedData function
+        function loadSavedData() {
+            const savedData = localStorage.getItem('objectivesDashboardData');
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                if (parsedData && parsedData.length > 0) {
+                    objectivesData.length = 0;
+                    parsedData.forEach(obj => objectivesData.push(obj));
+                    updateSyncStatus('synced', 'Loaded from local storage');
+                }
+            }
+            
+            const savedPeriod = localStorage.getItem('reviewPeriod');
+            if (savedPeriod) {
+                const parsedPeriod = JSON.parse(savedPeriod);
+                reviewPeriod = parsedPeriod;
+                updatePeriodDisplay();
+            }
+            
+            renderObjectives();
+            updateStats();
+        }
+        
+        // =================== INITIALIZATION ===================
         
         // Initialize the dashboard
         document.addEventListener('DOMContentLoaded', function() {
@@ -1632,40 +2128,53 @@
             const options = { year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
             
-            // Load saved data if exists
-            loadSavedData();
+            // Initialize Firebase Auth
+            initFirebaseAuth();
             
-            // Load review period
-            loadReviewPeriod();
+            // Set up event listeners for login button
+            document.getElementById('login-btn').onclick = signIn;
             
-            // Render all objectives
+            // Update save button to use new save function
+            document.getElementById('save-progress').addEventListener('click', saveProgress);
+            
+            // Auto-save every 2 minutes if there are changes
+            setInterval(() => {
+                if (unsavedChanges) {
+                    saveProgress();
+                }
+            }, 120000);
+            
+            // Check network status
+            window.addEventListener('online', () => {
+                updateSyncStatus('syncing', 'Reconnecting...');
+                if (currentUserId) {
+                    // Try to sync when back online
+                    setTimeout(() => saveProgress(), 1000);
+                }
+            });
+            
+            window.addEventListener('offline', () => {
+                updateSyncStatus('offline', 'Offline - changes saved locally');
+            });
+            
+            // Initial render (will be overridden when Firebase loads)
             renderObjectives();
             updateStats();
-            
-            // Setup event listeners
             setupEventListeners();
-            
-            // Check for reminders on load
             setTimeout(checkReminders, 1000);
-            
-            // Initialize calendar
             renderCalendar();
+            
+            // Try anonymous sign-in on load
+            setTimeout(() => {
+                if (!currentUserId) {
+                    auth.signInAnonymously().catch(() => {
+                        console.log("Anonymous auth not available, using local storage");
+                    });
+                }
+            }, 1000);
         });
         
-        // Load saved data from localStorage
-        function loadSavedData() {
-            const savedData = localStorage.getItem('objectivesDashboardData');
-            if (savedData) {
-                const parsedData = JSON.parse(savedData);
-                // Only update if we have valid data
-                if (parsedData && parsedData.length > 0) {
-                    // Clear existing data and replace with saved data
-                    objectivesData.length = 0;
-                    parsedData.forEach(obj => objectivesData.push(obj));
-                    showNotification('Loaded saved data');
-                }
-            }
-        }
+        // =================== ORIGINAL FUNCTIONS (KEEP THESE AS-IS) ===================
         
         // Load review period from localStorage
         function loadReviewPeriod() {
@@ -1686,16 +2195,6 @@
         function updatePeriodDisplay() {
             const displayText = `${reviewPeriod.display}`;
             document.getElementById('period-display').textContent = displayText;
-        }
-        
-        // Save data to localStorage
-        function saveToLocalStorage() {
-            try {
-                localStorage.setItem('objectivesDashboardData', JSON.stringify(objectivesData));
-                showNotification('Progress saved successfully!');
-            } catch (e) {
-                console.error('Error saving to localStorage:', e);
-            }
         }
         
         // Show notification
@@ -1742,19 +2241,12 @@
             updateView();
         }
         
-        // Update view based on currentView setting
-        function updateView() {
-            const container = document.getElementById('objectives-container');
-            container.className = `objectives-container ${currentView}-view`;
-        }
-        
         // Create objective card
         function createObjectiveCard(objective) {
             const card = document.createElement('div');
             card.className = 'objective-card';
-            card.setAttribute('data-id', objective.id);
+            card.setAttribute('data-objective-id', objective.id);
             
-            // Status badge
             let statusText = '';
             let statusClass = '';
             switch(objective.status) {
@@ -1772,53 +2264,48 @@
                     break;
             }
             
-            // Action points HTML
-            const actionPointsHTML = objective.actionPoints.length > 0 
-                ? objective.actionPoints.map((action, index) => createTaskHTML(objective.id, 'action', index, action)).join('')
-                : '<div class="no-tasks-message">No action points added yet</div>';
-            
-            // KPIs HTML
-            const kpisHTML = objective.kpis.length > 0 
-                ? objective.kpis.map((kpi, index) => createTaskHTML(objective.id, 'kpi', index, kpi)).join('')
-                : '<div class="no-tasks-message">No KPIs added yet</div>';
+            const progressColor = getProgressColor(objective.progress);
             
             card.innerHTML = `
                 <div class="card-header">
-                    <div class="objective-title">Objective ${objective.id}: ${objective.title}</div>
-                    <input type="text" class="objective-title-input" value="${objective.title}" data-objective-id="${objective.id}">
-                    <div class="status-badge ${statusClass}" data-objective-id="${objective.id}">${statusText}</div>
-                    <select class="status-select" data-objective-id="${objective.id}">
+                    <div class="objective-title">${objective.id}. ${objective.title}</div>
+                    <input type="text" class="objective-title-input" value="${objective.title}">
+                    
+                    <div class="status-badge ${statusClass}">${statusText}</div>
+                    <select class="status-select">
                         <option value="not-started" ${objective.status === 'not-started' ? 'selected' : ''}>Not Started</option>
                         <option value="in-progress" ${objective.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
                         <option value="completed" ${objective.status === 'completed' ? 'selected' : ''}>Completed</option>
                     </select>
+                    
                     <div class="objective-actions">
-                        <button class="objective-edit-btn" data-objective-id="${objective.id}">
+                        <button class="objective-edit-btn" title="Edit Objective">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="objective-save-btn" data-objective-id="${objective.id}">
-                            <i class="fas fa-save"></i>
+                        <button class="objective-save-btn" title="Save Changes">
+                            <i class="fas fa-check"></i>
                         </button>
-                        <button class="objective-cancel-btn" data-objective-id="${objective.id}">
+                        <button class="objective-cancel-btn" title="Cancel Edit">
                             <i class="fas fa-times"></i>
                         </button>
-                        <button class="objective-delete-btn" data-objective-id="${objective.id}">
+                        <button class="objective-delete-btn" title="Delete Objective">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
+                
                 <div class="card-content">
                     <div class="progress-section">
                         <div class="progress-header">
-                            <div class="progress-label">Progress</div>
-                            <div class="progress-value">${objective.progress}%</div>
+                            <span class="progress-label">Overall Progress</span>
+                            <span class="progress-value">${objective.progress}%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="progress-fill-${objective.id}" style="width: ${objective.progress}%; background-color: ${getProgressColor(objective.progress)};"></div>
+                            <div class="progress-fill" style="width: ${objective.progress}%; background-color: ${progressColor};"></div>
                         </div>
                         <div class="progress-input-container">
-                            <input type="range" min="0" max="100" value="${objective.progress}" class="progress-slider" id="slider-${objective.id}">
-                            <input type="number" min="0" max="100" value="${objective.progress}" class="progress-number" id="number-${objective.id}">
+                            <input type="range" class="progress-slider" min="0" max="100" value="${objective.progress}">
+                            <input type="number" class="progress-number" min="0" max="100" value="${objective.progress}">
                             <span>%</span>
                         </div>
                     </div>
@@ -1826,25 +2313,25 @@
                     <div class="action-kpi-container">
                         <div class="action-points">
                             <div class="section-title">
-                                <i class="fas fa-list-check"></i> Key Action Points
-                                <button class="add-task-btn" data-objective-id="${objective.id}" data-type="action">
+                                Key Action Points
+                                <button class="add-task-btn" data-type="action" data-objective-id="${objective.id}">
                                     <i class="fas fa-plus"></i> Add
                                 </button>
                             </div>
                             <ul class="task-list" id="action-list-${objective.id}">
-                                ${actionPointsHTML}
+                                ${objective.actionPoints.map((task, index) => createTaskHTML(task, index, 'action', objective.id)).join('')}
                             </ul>
                         </div>
                         
                         <div class="kpis">
                             <div class="section-title">
-                                <i class="fas fa-chart-simple"></i> Key Performance Indicators
-                                <button class="add-task-btn" data-objective-id="${objective.id}" data-type="kpi">
+                                Key Performance Indicators
+                                <button class="add-task-btn" data-type="kpi" data-objective-id="${objective.id}">
                                     <i class="fas fa-plus"></i> Add
                                 </button>
                             </div>
                             <ul class="task-list" id="kpi-list-${objective.id}">
-                                ${kpisHTML}
+                                ${objective.kpis.map((task, index) => createTaskHTML(task, index, 'kpi', objective.id)).join('')}
                             </ul>
                         </div>
                     </div>
@@ -1855,132 +2342,105 @@
         }
         
         // Create task HTML
-        function createTaskHTML(objectiveId, type, index, task) {
-            // Check if task has notes with due dates
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        function createTaskHTML(task, index, type, objectiveId) {
+            const hasNotes = task.notes && task.notes.length > 0;
+            const hasAttachments = task.attachments && task.attachments.length > 0;
             
-            let taskClass = '';
-            let hasDueDate = false;
-            
-            if (task.notes && task.notes.length > 0) {
-                for (const note of task.notes) {
-                    if (note.date) {
-                        const noteDate = new Date(note.date);
-                        noteDate.setHours(0, 0, 0, 0);
-                        
-                        if (noteDate.getTime() === today.getTime()) {
-                            taskClass = 'task-due-soon';
-                            hasDueDate = true;
-                            break;
-                        } else if (noteDate < today) {
-                            taskClass = 'task-overdue';
-                            hasDueDate = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            const notesHTML = task.notes && task.notes.length > 0 
-                ? task.notes.map((note, noteIndex) => `
-                    <div class="note-item ${getNoteDueClass(note.date)}">
-                        <div class="note-header">
-                            <span class="note-date">${formatDate(note.date) || 'No date'}</span>
-                            <button class="delete-note-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}" data-note-index="${noteIndex}">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div class="note-text">${note.text}</div>
+            const notesHTML = hasNotes ? task.notes.map(note => `
+                <div class="note-item">
+                    <div class="note-header">
+                        <span class="note-date">${formatDate(note.date)}</span>
+                        <button class="delete-note-btn" data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}" data-note-index="${task.notes.indexOf(note)}">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                `).join('')
-                : '';
+                    <div class="note-text">${note.text}</div>
+                </div>
+            `).join('') : '';
             
-            const attachmentsHTML = task.attachments && task.attachments.length > 0 
-                ? task.attachments.map((attachment, attachmentIndex) => `
-                    <div class="attachment-item">
-                        <div class="attachment-header">
-                            <span class="attachment-name">${attachment.name}</span>
-                            <button class="delete-attachment-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}" data-attachment-index="${attachmentIndex}">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div class="attachment-info">
-                            <span class="attachment-size">${formatFileSize(attachment.size)}</span>
-                            <button class="view-attachment-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}" data-attachment-index="${attachmentIndex}">
-                                <i class="fas fa-eye"></i> View
-                            </button>
-                        </div>
+            const attachmentsHTML = hasAttachments ? task.attachments.map(attachment => `
+                <div class="attachment-item">
+                    <div class="attachment-header">
+                        <span class="attachment-name">${attachment.name}</span>
+                        <button class="delete-attachment-btn" data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}" data-attachment-index="${task.attachments.indexOf(attachment)}">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                `).join('')
-                : '';
+                    <div class="attachment-info">
+                        <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                        <button class="view-attachment-btn" data-file="${attachment.data}" data-filename="${attachment.name}">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </div>
+                </div>
+            `).join('') : '';
             
             return `
-                <li class="task-item ${taskClass}" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
+                <li class="task-item ${task.completed ? 'completed' : ''}">
                     <div class="task-content">
+                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} 
+                               data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}">
                         <div class="task-text-container">
-                            <div class="task-text ${task.completed ? 'completed' : ''}">${task.text}</div>
-                            <input type="text" class="task-text-input" value="${task.text}" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
+                            <div class="task-text">${task.text}</div>
+                            <input type="text" class="task-text-input" value="${task.text}">
                         </div>
                         <div class="task-actions">
-                            ${hasDueDate ? '<i class="fas fa-bell" style="color: #f39c12; margin-right: 5px;"></i>' : ''}
-                            ${task.attachments && task.attachments.length > 0 ? `<i class="fas fa-paperclip" style="color: #9b59b6; margin-right: 5px;"></i>` : ''}
-                            <button class="task-action-btn edit-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
+                            <button class="task-action-btn edit-task-btn" title="Edit Task">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="task-action-btn notes-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
+                            <button class="task-action-btn note-btn ${hasNotes ? 'active' : ''}" title="Add Note">
                                 <i class="fas fa-sticky-note"></i>
                             </button>
-                            <button class="task-action-btn attachment-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
+                            <button class="task-action-btn attachment-btn ${hasAttachments ? 'active' : ''}" title="Add Attachment">
                                 <i class="fas fa-paperclip"></i>
                             </button>
-                            <button class="task-action-btn delete-task-btn" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
+                            <button class="task-action-btn delete-task-btn" title="Delete Task">
                                 <i class="fas fa-trash"></i>
                             </button>
-                            <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">
                         </div>
                     </div>
-                    <div class="task-notes-section" id="notes-section-${objectiveId}-${type}-${index}">
-                        <label class="task-section-label">Notes:</label>
-                        <div class="notes-container" id="notes-container-${objectiveId}-${type}-${index}">
+                    
+                    <div class="task-notes-section">
+                        <span class="task-section-label">Notes:</span>
+                        <div class="notes-container">
                             ${notesHTML}
                         </div>
-                        <div class="add-note-form">
+                        <div class="add-note-form" style="display: none;">
                             <div class="note-form-row">
-                                <input type="date" class="note-date-input" value="${new Date().toISOString().split('T')[0]}" placeholder="Set reminder date">
+                                <input type="date" class="note-date-input" value="${new Date().toISOString().split('T')[0]}">
                             </div>
-                            <textarea class="note-text-input" placeholder="Add a new note..."></textarea>
+                            <textarea class="note-text-input" placeholder="Enter note text..."></textarea>
                             <div class="note-form-buttons">
-                                <button class="note-form-btn cancel" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">Cancel</button>
-                                <button class="note-form-btn save" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">Add Note</button>
+                                <button class="note-form-btn cancel">Cancel</button>
+                                <button class="note-form-btn save">Save Note</button>
                             </div>
                         </div>
+                        <button class="add-note-btn" style="margin-top: 10px; padding: 5px 10px; background: #f8f9fa; border: 1px dashed #ccc; border-radius: 4px; width: 100%; cursor: pointer;">
+                            <i class="fas fa-plus"></i> Add Note
+                        </button>
                     </div>
-                    <div class="task-attachments-section" id="attachments-section-${objectiveId}-${type}-${index}">
-                        <label class="task-section-label">Attachments (Evidence Files):</label>
-                        <div class="attachments-container" id="attachments-container-${objectiveId}-${type}-${index}">
+                    
+                    <div class="task-attachments-section">
+                        <span class="task-section-label">Attachments:</span>
+                        <div class="attachments-container">
                             ${attachmentsHTML}
                         </div>
-                        <div class="add-attachment-form">
-                            <div class="attachment-form-row">
-                                <div class="file-input-wrapper">
-                                    <input type="file" class="attachment-file-input" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}" id="file-input-${objectiveId}-${type}-${index}">
-                                    <label for="file-input-${objectiveId}-${type}-${index}" class="file-input-label">
-                                        <i class="fas fa-cloud-upload-alt"></i> Choose file to upload
-                                    </label>
-                                </div>
+                        <div class="add-attachment-form" style="display: none;">
+                            <div class="file-input-wrapper">
+                                <input type="file" class="attachment-file-input" multiple>
+                                <label class="file-input-label">
+                                    <i class="fas fa-cloud-upload-alt"></i> Choose files
+                                </label>
                             </div>
-                            <div class="upload-progress" id="upload-progress-${objectiveId}-${type}-${index}">
-                                <i class="fas fa-spinner fa-spin"></i> Uploading file...
-                            </div>
+                            <div class="upload-progress">Uploading...</div>
                             <div class="attachment-form-buttons">
-                                <button class="attachment-form-btn cancel" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">Cancel</button>
-                                <button class="attachment-form-btn save" data-objective-id="${objectiveId}" data-type="${type}" data-index="${index}">Upload File</button>
-                            </div>
-                            <div style="font-size: 0.8rem; color: var(--light-text); margin-top: 10px;">
-                                <i class="fas fa-info-circle"></i> Maximum file size: 5MB. Supported: images, PDFs, documents.
+                                <button class="attachment-form-btn cancel">Cancel</button>
+                                <button class="attachment-form-btn save">Upload Files</button>
                             </div>
                         </div>
+                        <button class="add-attachment-btn" style="margin-top: 10px; padding: 5px 10px; background: #f8f9fa; border: 1px dashed #ccc; border-radius: 4px; width: 100%; cursor: pointer;">
+                            <i class="fas fa-plus"></i> Add Attachment
+                        </button>
                     </div>
                 </li>
             `;
@@ -2029,25 +2489,6 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
-        // Get note due class based on date
-        function getNoteDueClass(dateString) {
-            if (!dateString) return '';
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const noteDate = new Date(dateString);
-            noteDate.setHours(0, 0, 0, 0);
-            
-            if (noteDate.getTime() === today.getTime()) {
-                return 'task-due-soon';
-            } else if (noteDate < today) {
-                return 'task-overdue';
-            }
-            
-            return '';
-        }
-        
         // Update stats
         function updateStats() {
             const totalObjectives = objectivesData.length;
@@ -2077,6 +2518,217 @@
             document.getElementById('total-attachments').textContent = totalAttachments;
         }
         
+        // Add new objective
+        function addNewObjective() {
+            // Generate new ID (highest existing ID + 1)
+            const maxId = objectivesData.reduce((max, obj) => Math.max(max, obj.id), 0);
+            const newId = maxId + 1;
+            
+            // Create new objective
+            const newObjective = {
+                id: newId,
+                title: "New Objective",
+                status: "not-started",
+                progress: 0,
+                actionPoints: [
+                    {text: "New action point 1", completed: false, notes: [], attachments: []},
+                    {text: "New action point 2", completed: false, notes: [], attachments: []},
+                    {text: "New action point 3", completed: false, notes: [], attachments: []}
+                ],
+                kpis: [
+                    {text: "New KPI 1", completed: false, notes: [], attachments: []},
+                    {text: "New KPI 2", completed: false, notes: [], attachments: []},
+                    {text: "New KPI 3", completed: false, notes: [], attachments: []}
+                ]
+            };
+            
+            // Add to data array
+            objectivesData.push(newObjective);
+            
+            // Re-render objectives
+            renderObjectives();
+            
+            // Update stats
+            updateStats();
+            
+            // Save to cloud/local
+            saveProgress();
+            
+            // Show notification
+            showNotification('New objective added successfully!');
+            
+            // Scroll to the new objective
+            setTimeout(() => {
+                const newCard = document.querySelector(`[data-objective-id="${newId}"]`);
+                if (newCard) {
+                    newCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    
+                    // Automatically enter edit mode for the new objective
+                    const editBtn = newCard.querySelector('.objective-edit-btn');
+                    if (editBtn) {
+                        editBtn.click();
+                        
+                        // Focus on the title input
+                        setTimeout(() => {
+                            const titleInput = newCard.querySelector('.objective-title-input');
+                            if (titleInput) {
+                                titleInput.focus();
+                                titleInput.select();
+                            }
+                        }, 100);
+                    }
+                }
+            }, 100);
+        }
+        
+        // Update objective status based on progress
+        function updateObjectiveStatus(objective) {
+            const allTasks = [...objective.actionPoints, ...objective.kpis];
+            const completedTasks = allTasks.filter(task => task.completed).length;
+            objective.progress = allTasks.length > 0 ? Math.round((completedTasks / allTasks.length) * 100) : 0;
+            
+            // Update status based on progress
+            if (objective.progress === 0) {
+                objective.status = 'not-started';
+            } else if (objective.progress === 100) {
+                objective.status = 'completed';
+            } else {
+                objective.status = 'in-progress';
+            }
+            
+            return objective.status;
+        }
+        
+        // Delete an objective
+        function deleteObjective(objectiveId) {
+            // Find index of objective to delete
+            const index = objectivesData.findIndex(obj => obj.id === objectiveId);
+            
+            if (index !== -1) {
+                // Remove from array
+                objectivesData.splice(index, 1);
+                
+                // Re-render
+                renderObjectives();
+                updateStats();
+                saveProgress();
+                
+                showNotification('Objective deleted successfully');
+            }
+        }
+        
+        // Update view
+        function updateView() {
+            const container = document.getElementById('objectives-container');
+            container.className = `objectives-container ${currentView}-view`;
+        }
+        
+        // Check reminders
+        function checkReminders() {
+            const now = new Date();
+            const reminderNotification = document.getElementById('reminder-notification');
+            const reminderContent = document.getElementById('reminder-content');
+            
+            // Clear previous content
+            reminderContent.innerHTML = '';
+            
+            let hasReminders = false;
+            let reminderHTML = '<ul class="reminder-list">';
+            
+            // Check each objective for tasks due soon
+            objectivesData.forEach(objective => {
+                const allTasks = [...objective.actionPoints, ...objective.kpis];
+                
+                allTasks.forEach(task => {
+                    // Check if task has notes with due dates
+                    task.notes.forEach(note => {
+                        if (note.dueDate) {
+                            const dueDate = new Date(note.dueDate);
+                            const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                            
+                            if (daysUntilDue >= 0 && daysUntilDue <= 7) {
+                                hasReminders = true;
+                                const statusClass = daysUntilDue <= 3 ? 'task-due-soon' : '';
+                                const urgencyText = daysUntilDue <= 3 ? ' (Due soon!)' : daysUntilDue <= 7 ? ' (Due this week)' : '';
+                                
+                                reminderHTML += `
+                                    <li class="reminder-item ${statusClass}">
+                                        <strong>Objective ${objective.id}:</strong> ${task.text.substring(0, 50)}...
+                                        <br>
+                                        <small>Due: ${formatDate(note.dueDate)}${urgencyText}</small>
+                                    </li>
+                                `;
+                            }
+                        }
+                    });
+                });
+            });
+            
+            reminderHTML += '</ul>';
+            
+            if (hasReminders) {
+                reminderContent.innerHTML = reminderHTML;
+                if (!remindersShown) {
+                    reminderNotification.classList.add('show');
+                    remindersShown = true;
+                }
+            } else {
+                reminderContent.innerHTML = '<p>No upcoming reminders.</p>';
+                reminderNotification.classList.remove('show');
+            }
+        }
+        
+        // Show reminders modal
+        function showRemindersModal() {
+            const modal = document.getElementById('reminders-modal');
+            const container = document.getElementById('reminders-list-container');
+            
+            let remindersHTML = '';
+            
+            objectivesData.forEach(objective => {
+                const allTasks = [...objective.actionPoints, ...objective.kpis];
+                let hasTasks = false;
+                let tasksHTML = '';
+                
+                allTasks.forEach(task => {
+                    if (task.notes && task.notes.length > 0) {
+                        task.notes.forEach(note => {
+                            if (note.dueDate) {
+                                hasTasks = true;
+                                const dueDate = new Date(note.dueDate);
+                                const now = new Date();
+                                const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                                
+                                tasksHTML += `
+                                    <div class="reminder-item ${daysUntilDue <= 3 ? 'task-overdue' : daysUntilDue <= 7 ? 'task-due-soon' : ''}">
+                                        <strong>${task.text.substring(0, 60)}...</strong>
+                                        <div>Due: ${formatDate(note.dueDate)} (${daysUntilDue} days)</div>
+                                        <div>Note: ${note.text.substring(0, 80)}...</div>
+                                    </div>
+                                `;
+                            }
+                        });
+                    }
+                });
+                
+                if (hasTasks) {
+                    remindersHTML += `
+                        <div style="margin-bottom: 20px;">
+                            <h4>Objective ${objective.id}: ${objective.title.substring(0, 50)}...</h4>
+                            ${tasksHTML}
+                        </div>
+                    `;
+                }
+            });
+            
+            if (remindersHTML === '') {
+                remindersHTML = '<p>No reminders found.</p>';
+            }
+            
+            container.innerHTML = remindersHTML;
+            modal.classList.add('show');
+        }
+        
         // Setup all event listeners
         function setupEventListeners() {
             // Filter buttons
@@ -2098,9 +2750,6 @@
                     updateView();
                 });
             });
-            
-            // Save progress button
-            document.getElementById('save-progress').addEventListener('click', saveToLocalStorage);
             
             // Add new objective button
             document.getElementById('add-objective').addEventListener('click', addNewObjective);
@@ -2262,285 +2911,683 @@
                     
                     renderObjectives();
                     updateStats();
-                    saveToLocalStorage();
+                    saveProgress();
                     showNotification('All progress has been reset');
                 }
             });
             
             // Event delegation for dynamic elements
             document.addEventListener('click', function(e) {
-                const target = e.target;
+                // Handle checkbox changes
+                if (e.target.classList.contains('task-checkbox')) {
+                    const objectiveId = parseInt(e.target.getAttribute('data-objective-id'));
+                    const taskIndex = parseInt(e.target.getAttribute('data-task-index'));
+                    const taskType = e.target.getAttribute('data-task-type');
+                    
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                        if (taskList[taskIndex]) {
+                            taskList[taskIndex].completed = e.target.checked;
+                            
+                            // Update task styling
+                            const taskItem = e.target.closest('.task-item');
+                            if (taskItem) {
+                                if (e.target.checked) {
+                                    taskItem.classList.add('completed');
+                                } else {
+                                    taskItem.classList.remove('completed');
+                                }
+                            }
+                            
+                            // Update objective progress and status
+                            updateObjectiveStatus(objective);
+                            
+                            // Update the progress bar
+                            const card = e.target.closest('.objective-card');
+                            const progressFill = card.querySelector('.progress-fill');
+                            const progressValue = card.querySelector('.progress-value');
+                            const progressSlider = card.querySelector('.progress-slider');
+                            const progressNumber = card.querySelector('.progress-number');
+                            
+                            if (progressFill) {
+                                progressFill.style.width = `${objective.progress}%`;
+                                progressFill.style.backgroundColor = getProgressColor(objective.progress);
+                            }
+                            if (progressValue) progressValue.textContent = `${objective.progress}%`;
+                            if (progressSlider) progressSlider.value = objective.progress;
+                            if (progressNumber) progressNumber.value = objective.progress;
+                            
+                            // Update status badge
+                            const statusBadge = card.querySelector('.status-badge');
+                            const statusSelect = card.querySelector('.status-select');
+                            if (statusBadge) {
+                                let statusText = '';
+                                let statusClass = '';
+                                switch(objective.status) {
+                                    case 'not-started': 
+                                        statusText = 'Not Started'; 
+                                        statusClass = 'status-not-started';
+                                        break;
+                                    case 'in-progress': 
+                                        statusText = 'In Progress'; 
+                                        statusClass = 'status-in-progress';
+                                        break;
+                                    case 'completed': 
+                                        statusText = 'Completed'; 
+                                        statusClass = 'status-completed';
+                                        break;
+                                }
+                                statusBadge.textContent = statusText;
+                                statusBadge.className = `status-badge ${statusClass}`;
+                            }
+                            if (statusSelect) statusSelect.value = objective.status;
+                            
+                            updateStats();
+                            saveProgress();
+                        }
+                    }
+                }
                 
-                // Calendar day click
-                if (target.classList.contains('calendar-day') && !target.classList.contains('other-month')) {
+                // Handle edit task button
+                if (e.target.closest('.edit-task-btn')) {
+                    const taskItem = e.target.closest('.task-item');
+                    const taskText = taskItem.querySelector('.task-text');
+                    const taskInput = taskItem.querySelector('.task-text-input');
+                    
+                    if (taskText && taskInput) {
+                        taskText.style.display = 'none';
+                        taskInput.style.display = 'block';
+                        taskInput.focus();
+                        taskInput.select();
+                        
+                        // Change edit icon to save
+                        const editBtn = e.target.closest('.edit-task-btn');
+                        editBtn.innerHTML = '<i class="fas fa-check"></i>';
+                        editBtn.title = 'Save Task';
+                        editBtn.classList.remove('edit-task-btn');
+                        editBtn.classList.add('save-task-btn');
+                    }
+                }
+                
+                // Handle save task button
+                if (e.target.closest('.save-task-btn')) {
+                    const taskItem = e.target.closest('.task-item');
+                    const taskText = taskItem.querySelector('.task-text');
+                    const taskInput = taskItem.querySelector('.task-text-input');
+                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+                    
+                    if (taskText && taskInput && taskInput.value.trim()) {
+                        const objective = objectivesData.find(obj => obj.id === objectiveId);
+                        if (objective) {
+                            // Find which task list and index
+                            const taskListContainer = taskItem.closest('.task-list');
+                            const isAction = taskListContainer.id.startsWith('action-list');
+                            const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                            
+                            const taskList = isAction ? objective.actionPoints : objective.kpis;
+                            if (taskList[taskIndex]) {
+                                taskList[taskIndex].text = taskInput.value.trim();
+                                taskText.textContent = taskInput.value.trim();
+                            }
+                        }
+                        
+                        taskText.style.display = 'flex';
+                        taskInput.style.display = 'none';
+                        
+                        // Change save icon back to edit
+                        const saveBtn = e.target.closest('.save-task-btn');
+                        saveBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                        saveBtn.title = 'Edit Task';
+                        saveBtn.classList.remove('save-task-btn');
+                        saveBtn.classList.add('edit-task-btn');
+                        
+                        saveProgress();
+                        showNotification('Task updated');
+                    }
+                }
+                
+                // Handle delete task button
+                if (e.target.closest('.delete-task-btn')) {
+                    const taskItem = e.target.closest('.task-item');
+                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+                    
+                    if (confirm('Are you sure you want to delete this task?')) {
+                        const objective = objectivesData.find(obj => obj.id === objectiveId);
+                        if (objective) {
+                            const taskListContainer = taskItem.closest('.task-list');
+                            const isAction = taskListContainer.id.startsWith('action-list');
+                            const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                            
+                            const taskList = isAction ? objective.actionPoints : objective.kpis;
+                            if (taskList[taskIndex]) {
+                                taskList.splice(taskIndex, 1);
+                                
+                                // Update objective progress and status
+                                updateObjectiveStatus(objective);
+                                
+                                // Re-render the objective
+                                const card = taskItem.closest('.objective-card');
+                                const newCard = createObjectiveCard(objective);
+                                card.parentNode.replaceChild(newCard, card);
+                                
+                                updateStats();
+                                saveProgress();
+                                showNotification('Task deleted');
+                            }
+                        }
+                    }
+                }
+                
+                // Handle add task button
+                if (e.target.closest('.add-task-btn')) {
+                    const btn = e.target.closest('.add-task-btn');
+                    const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+                    const taskType = btn.getAttribute('data-type');
+                    
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                        const newTask = {
+                            text: `New ${taskType === 'action' ? 'action point' : 'KPI'}`,
+                            completed: false,
+                            notes: [],
+                            attachments: []
+                        };
+                        
+                        taskList.push(newTask);
+                        
+                        // Update objective progress and status
+                        updateObjectiveStatus(objective);
+                        
+                        // Re-render the objective
+                        const card = btn.closest('.objective-card');
+                        const newCard = createObjectiveCard(objective);
+                        card.parentNode.replaceChild(newCard, card);
+                        
+                        updateStats();
+                        saveProgress();
+                        showNotification('New task added');
+                    }
+                }
+                
+                // Handle note button
+                if (e.target.closest('.note-btn')) {
+                    const btn = e.target.closest('.note-btn');
+                    const taskItem = btn.closest('.task-item');
+                    const notesSection = taskItem.querySelector('.task-notes-section');
+                    const addNoteForm = taskItem.querySelector('.add-note-form');
+                    const addNoteBtn = taskItem.querySelector('.add-note-btn');
+                    
+                    if (notesSection.style.display === 'none' || notesSection.style.display === '') {
+                        notesSection.style.display = 'block';
+                        addNoteForm.style.display = 'none';
+                        addNoteBtn.style.display = 'block';
+                    } else {
+                        notesSection.style.display = 'none';
+                    }
+                }
+                
+                // Handle attachment button
+                if (e.target.closest('.attachment-btn')) {
+                    const btn = e.target.closest('.attachment-btn');
+                    const taskItem = btn.closest('.task-item');
+                    const attachmentsSection = taskItem.querySelector('.task-attachments-section');
+                    const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
+                    const addAttachmentBtn = taskItem.querySelector('.add-attachment-btn');
+                    
+                    if (attachmentsSection.style.display === 'none' || attachmentsSection.style.display === '') {
+                        attachmentsSection.style.display = 'block';
+                        addAttachmentForm.style.display = 'none';
+                        addAttachmentBtn.style.display = 'block';
+                    } else {
+                        attachmentsSection.style.display = 'none';
+                    }
+                }
+                
+                // Handle add note button
+                if (e.target.closest('.add-note-btn')) {
+                    const btn = e.target.closest('.add-note-btn');
+                    const taskItem = btn.closest('.task-item');
+                    const addNoteForm = taskItem.querySelector('.add-note-form');
+                    
+                    btn.style.display = 'none';
+                    addNoteForm.style.display = 'block';
+                }
+                
+                // Handle add attachment button
+                if (e.target.closest('.add-attachment-btn')) {
+                    const btn = e.target.closest('.add-attachment-btn');
+                    const taskItem = btn.closest('.task-item');
+                    const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
+                    
+                    btn.style.display = 'none';
+                    addAttachmentForm.style.display = 'block';
+                }
+                
+                // Handle save note button
+                if (e.target.closest('.note-form-btn.save')) {
+                    const btn = e.target.closest('.note-form-btn.save');
+                    const taskItem = btn.closest('.task-item');
+                    const noteDateInput = taskItem.querySelector('.note-date-input');
+                    const noteTextInput = taskItem.querySelector('.note-text-input');
+                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+                    
+                    if (noteDateInput.value && noteTextInput.value.trim()) {
+                        const objective = objectivesData.find(obj => obj.id === objectiveId);
+                        if (objective) {
+                            const taskListContainer = taskItem.closest('.task-list');
+                            const isAction = taskListContainer.id.startsWith('action-list');
+                            const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                            
+                            const taskList = isAction ? objective.actionPoints : objective.kpis;
+                            if (taskList[taskIndex]) {
+                                if (!taskList[taskIndex].notes) taskList[taskIndex].notes = [];
+                                taskList[taskIndex].notes.push({
+                                    date: noteDateInput.value,
+                                    text: noteTextInput.value.trim()
+                                });
+                                
+                                // Re-render the task
+                                const taskListElement = taskItem.closest('.task-list');
+                                const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
+                                taskItem.outerHTML = newTaskHTML;
+                                
+                                saveProgress();
+                                showNotification('Note added');
+                            }
+                        }
+                    }
+                }
+                
+                // Handle cancel note button
+                if (e.target.closest('.note-form-btn.cancel')) {
+                    const btn = e.target.closest('.note-form-btn.cancel');
+                    const taskItem = btn.closest('.task-item');
+                    const addNoteForm = taskItem.querySelector('.add-note-form');
+                    const addNoteBtn = taskItem.querySelector('.add-note-btn');
+                    
+                    addNoteForm.style.display = 'none';
+                    addNoteBtn.style.display = 'block';
+                }
+                
+                // Handle delete note button
+                if (e.target.closest('.delete-note-btn')) {
+                    const btn = e.target.closest('.delete-note-btn');
+                    const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+                    const taskIndex = parseInt(btn.getAttribute('data-task-index'));
+                    const taskType = btn.getAttribute('data-task-type');
+                    const noteIndex = parseInt(btn.getAttribute('data-note-index'));
+                    
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                        if (taskList[taskIndex] && taskList[taskIndex].notes[noteIndex]) {
+                            taskList[taskIndex].notes.splice(noteIndex, 1);
+                            
+                            // Re-render the task
+                            const taskItem = btn.closest('.task-item');
+                            const taskListElement = taskItem.closest('.task-list');
+                            const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, taskType, objectiveId);
+                            taskItem.outerHTML = newTaskHTML;
+                            
+                            saveProgress();
+                            showNotification('Note deleted');
+                        }
+                    }
+                }
+                
+                // Handle save attachment button
+                if (e.target.closest('.attachment-form-btn.save')) {
+                    const btn = e.target.closest('.attachment-form-btn.save');
+                    const taskItem = btn.closest('.task-item');
+                    const fileInput = taskItem.querySelector('.attachment-file-input');
+                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+                    
+                    if (fileInput.files.length > 0) {
+                        const uploadProgress = taskItem.querySelector('.upload-progress');
+                        uploadProgress.classList.add('active');
+                        uploadProgress.textContent = `Uploading ${fileInput.files.length} file(s)...`;
+                        
+                        // Process each file
+                        const files = Array.from(fileInput.files);
+                        const processedFiles = [];
+                        
+                        files.forEach((file, index) => {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                processedFiles.push({
+                                    name: file.name,
+                                    size: file.size,
+                                    type: file.type,
+                                    data: e.target.result
+                                });
+                                
+                                // When all files are processed
+                                if (processedFiles.length === files.length) {
+                                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                                    if (objective) {
+                                        const taskListContainer = taskItem.closest('.task-list');
+                                        const isAction = taskListContainer.id.startsWith('action-list');
+                                        const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                                        
+                                        const taskList = isAction ? objective.actionPoints : objective.kpis;
+                                        if (taskList[taskIndex]) {
+                                            if (!taskList[taskIndex].attachments) taskList[taskIndex].attachments = [];
+                                            taskList[taskIndex].attachments.push(...processedFiles);
+                                            
+                                            // Re-render the task
+                                            const taskListElement = taskItem.closest('.task-list');
+                                            const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
+                                            taskItem.outerHTML = newTaskHTML;
+                                            
+                                            updateStats();
+                                            saveProgress();
+                                            showNotification(`${files.length} file(s) uploaded`);
+                                        }
+                                    }
+                                }
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    }
+                }
+                
+                // Handle cancel attachment button
+                if (e.target.closest('.attachment-form-btn.cancel')) {
+                    const btn = e.target.closest('.attachment-form-btn.cancel');
+                    const taskItem = btn.closest('.task-item');
+                    const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
+                    const addAttachmentBtn = taskItem.querySelector('.add-attachment-btn');
+                    
+                    addAttachmentForm.style.display = 'none';
+                    addAttachmentBtn.style.display = 'block';
+                }
+                
+                // Handle delete attachment button
+                if (e.target.closest('.delete-attachment-btn')) {
+                    const btn = e.target.closest('.delete-attachment-btn');
+                    const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+                    const taskIndex = parseInt(btn.getAttribute('data-task-index'));
+                    const taskType = btn.getAttribute('data-task-type');
+                    const attachmentIndex = parseInt(btn.getAttribute('data-attachment-index'));
+                    
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                        if (taskList[taskIndex] && taskList[taskIndex].attachments[attachmentIndex]) {
+                            taskList[taskIndex].attachments.splice(attachmentIndex, 1);
+                            
+                            // Re-render the task
+                            const taskItem = btn.closest('.task-item');
+                            const taskListElement = taskItem.closest('.task-list');
+                            const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, taskType, objectiveId);
+                            taskItem.outerHTML = newTaskHTML;
+                            
+                            updateStats();
+                            saveProgress();
+                            showNotification('Attachment deleted');
+                        }
+                    }
+                }
+                
+                // Handle view attachment button
+                if (e.target.closest('.view-attachment-btn')) {
+                    const btn = e.target.closest('.view-attachment-btn');
+                    const fileData = btn.getAttribute('data-file');
+                    const fileName = btn.getAttribute('data-filename');
+                    
+                    const modal = document.getElementById('file-preview-modal');
+                    const container = document.getElementById('file-preview-container');
+                    const downloadBtn = document.getElementById('download-file-btn');
+                    
+                    container.innerHTML = '';
+                    
+                    // Check file type
+                    if (fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                        // Image file
+                        const img = document.createElement('img');
+                        img.src = fileData;
+                        img.className = 'file-preview';
+                        container.appendChild(img);
+                    } else if (fileName.match(/\.(pdf)$/i)) {
+                        // PDF file
+                        const embed = document.createElement('embed');
+                        embed.src = fileData;
+                        embed.type = 'application/pdf';
+                        embed.className = 'file-preview';
+                        container.appendChild(embed);
+                    } else if (fileName.match(/\.(txt)$/i)) {
+                        // Text file
+                        const textContent = atob(fileData.split(',')[1]);
+                        const pre = document.createElement('pre');
+                        pre.textContent = textContent;
+                        pre.style.whiteSpace = 'pre-wrap';
+                        pre.style.padding = '20px';
+                        container.appendChild(pre);
+                    } else {
+                        // Unsupported file type
+                        container.innerHTML = `
+                            <div class="unsupported-file">
+                                <i class="fas fa-file"></i>
+                                <h4>File Preview Not Available</h4>
+                                <p>Preview is not available for this file type.</p>
+                                <div class="file-info">
+                                    <p>File: ${fileName}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Set up download
+                    downloadBtn.href = fileData;
+                    downloadBtn.download = fileName;
+                    
+                    modal.classList.add('show');
+                }
+                
+                // Handle progress slider
+                if (e.target.classList.contains('progress-slider')) {
+                    const objectiveId = parseInt(e.target.closest('.objective-card').getAttribute('data-objective-id'));
+                    const progressNumber = e.target.closest('.progress-input-container').querySelector('.progress-number');
+                    const progressFill = e.target.closest('.progress-section').querySelector('.progress-fill');
+                    
+                    progressNumber.value = e.target.value;
+                    progressFill.style.width = `${e.target.value}%`;
+                    progressFill.style.backgroundColor = getProgressColor(parseInt(e.target.value));
+                    
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        objective.progress = parseInt(e.target.value);
+                        objective.status = updateObjectiveStatus(objective);
+                        
+                        // Update status badge
+                        const card = e.target.closest('.objective-card');
+                        const statusBadge = card.querySelector('.status-badge');
+                        const statusSelect = card.querySelector('.status-select');
+                        if (statusBadge) {
+                            let statusText = '';
+                            let statusClass = '';
+                            switch(objective.status) {
+                                case 'not-started': 
+                                    statusText = 'Not Started'; 
+                                    statusClass = 'status-not-started';
+                                    break;
+                                case 'in-progress': 
+                                    statusText = 'In Progress'; 
+                                    statusClass = 'status-in-progress';
+                                    break;
+                                case 'completed': 
+                                    statusText = 'Completed'; 
+                                    statusClass = 'status-completed';
+                                    break;
+                            }
+                            statusBadge.textContent = statusText;
+                            statusBadge.className = `status-badge ${statusClass}`;
+                        }
+                        if (statusSelect) statusSelect.value = objective.status;
+                        
+                        updateStats();
+                        saveProgress();
+                    }
+                }
+                
+                // Handle progress number input
+                if (e.target.classList.contains('progress-number')) {
+                    const objectiveId = parseInt(e.target.closest('.objective-card').getAttribute('data-objective-id'));
+                    const progressSlider = e.target.closest('.progress-input-container').querySelector('.progress-slider');
+                    const progressFill = e.target.closest('.progress-section').querySelector('.progress-fill');
+                    
+                    let value = parseInt(e.target.value);
+                    if (isNaN(value)) value = 0;
+                    if (value < 0) value = 0;
+                    if (value > 100) value = 100;
+                    
+                    e.target.value = value;
+                    progressSlider.value = value;
+                    progressFill.style.width = `${value}%`;
+                    progressFill.style.backgroundColor = getProgressColor(value);
+                    
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        objective.progress = value;
+                        objective.status = updateObjectiveStatus(objective);
+                        
+                        // Update status badge
+                        const card = e.target.closest('.objective-card');
+                        const statusBadge = card.querySelector('.status-badge');
+                        const statusSelect = card.querySelector('.status-select');
+                        if (statusBadge) {
+                            let statusText = '';
+                            let statusClass = '';
+                            switch(objective.status) {
+                                case 'not-started': 
+                                    statusText = 'Not Started'; 
+                                    statusClass = 'status-not-started';
+                                    break;
+                                case 'in-progress': 
+                                    statusText = 'In Progress'; 
+                                    statusClass = 'status-in-progress';
+                                    break;
+                                case 'completed': 
+                                    statusText = 'Completed'; 
+                                    statusClass = 'status-completed';
+                                    break;
+                            }
+                            statusBadge.textContent = statusText;
+                            statusBadge.className = `status-badge ${statusClass}`;
+                        }
+                        if (statusSelect) statusSelect.value = objective.status;
+                        
+                        updateStats();
+                        saveProgress();
+                    }
+                }
+                
+                // Handle edit objective button
+                if (e.target.closest('.objective-edit-btn')) {
+                    const card = e.target.closest('.objective-card');
+                    card.classList.add('editing');
+                    
+                    // Focus on the title input
+                    setTimeout(() => {
+                        const titleInput = card.querySelector('.objective-title-input');
+                        if (titleInput) {
+                            titleInput.focus();
+                            titleInput.select();
+                        }
+                    }, 100);
+                }
+                
+                // Handle save objective button
+                if (e.target.closest('.objective-save-btn')) {
+                    const card = e.target.closest('.objective-card');
+                    const objectiveId = parseInt(card.getAttribute('data-objective-id'));
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    
+                    if (objective) {
+                        // Get updated title
+                        const titleInput = card.querySelector('.objective-title-input');
+                        if (titleInput && titleInput.value.trim()) {
+                            objective.title = titleInput.value.trim();
+                        }
+                        
+                        // Get updated status
+                        const statusSelect = card.querySelector('.status-select');
+                        if (statusSelect) {
+                            objective.status = statusSelect.value;
+                        }
+                        
+                        // Exit edit mode
+                        card.classList.remove('editing');
+                        
+                        // Update and re-render
+                        updateObjectiveStatus(objective);
+                        renderObjectives();
+                        updateStats();
+                        saveProgress();
+                        
+                        showNotification('Objective updated successfully');
+                    }
+                }
+                
+                // Handle cancel edit button
+                if (e.target.closest('.objective-cancel-btn')) {
+                    const card = e.target.closest('.objective-card');
+                    card.classList.remove('editing');
+                }
+                
+                // Handle delete objective button
+                if (e.target.closest('.objective-delete-btn')) {
+                    const card = e.target.closest('.objective-card');
+                    const objectiveId = parseInt(card.getAttribute('data-objective-id'));
+                    objectiveToDelete = objectiveId;
+                    
+                    // Get objective title for confirmation message
+                    const objective = objectivesData.find(obj => obj.id === objectiveId);
+                    if (objective) {
+                        document.getElementById('delete-objective-text').textContent = 
+                            `Are you sure you want to delete "${objective.title}"? This action cannot be undone and will delete all associated tasks, notes, and attachments.`;
+                    }
+                    
+                    document.getElementById('delete-objective-modal').classList.add('show');
+                }
+                
+                // Calendar day selection
+                if (e.target.classList.contains('calendar-day') && !e.target.classList.contains('other-month')) {
+                    // Remove previous selection
                     document.querySelectorAll('.calendar-day').forEach(day => {
                         day.classList.remove('selected');
                     });
-                    target.classList.add('selected');
                     
-                    const day = parseInt(target.textContent);
+                    // Add selection to clicked day
+                    e.target.classList.add('selected');
+                    
+                    // Update selected date
+                    const day = parseInt(e.target.textContent);
                     const selectedDate = new Date(calendarState.currentYear, calendarState.currentMonth, day);
                     calendarState.selectedDate = selectedDate;
                     
                     // Update display
                     document.getElementById('selected-date-display').textContent = 
-                        `Selected: ${formatMonthYear(selectedDate)}`;
-                }
-                
-                // Edit objective button
-                else if (target.closest('.objective-edit-btn')) {
-                    const btn = target.closest('.objective-edit-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    
-                    enterEditObjectiveMode(objectiveId);
-                }
-                
-                // Save objective button
-                else if (target.closest('.objective-save-btn')) {
-                    const btn = target.closest('.objective-save-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    
-                    saveObjectiveEdit(objectiveId);
-                }
-                
-                // Cancel objective edit button
-                else if (target.closest('.objective-cancel-btn')) {
-                    const btn = target.closest('.objective-cancel-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    
-                    cancelObjectiveEdit(objectiveId);
-                }
-                
-                // Delete objective button
-                else if (target.closest('.objective-delete-btn')) {
-                    const btn = target.closest('.objective-delete-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    
-                    confirmDeleteObjective(objectiveId);
-                }
-                
-                // Edit task button
-                else if (target.closest('.edit-btn')) {
-                    const btn = target.closest('.edit-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    
-                    toggleEditTask(objectiveId, type, index, btn);
-                }
-                
-                // Notes button
-                else if (target.closest('.notes-btn')) {
-                    const btn = target.closest('.notes-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    
-                    toggleSection('notes', objectiveId, type, index);
-                }
-                
-                // Attachments button
-                else if (target.closest('.attachment-btn')) {
-                    const btn = target.closest('.attachment-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    
-                    toggleSection('attachments', objectiveId, type, index);
-                }
-                
-                // Delete task button
-                else if (target.closest('.delete-task-btn')) {
-                    const btn = target.closest('.delete-task-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    
-                    deleteTask(objectiveId, type, index);
-                }
-                
-                // Add task button
-                else if (target.closest('.add-task-btn')) {
-                    const btn = target.closest('.add-task-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    
-                    addTask(objectiveId, type);
-                }
-                
-                // Task checkbox
-                else if (target.classList.contains('task-checkbox')) {
-                    const objectiveId = parseInt(target.dataset.objectiveId);
-                    const type = target.dataset.type;
-                    const index = parseInt(target.dataset.index);
-                    
-                    updateTaskCompletion(objectiveId, type, index, target.checked);
-                }
-                
-                // Progress slider
-                else if (target.classList.contains('progress-slider')) {
-                    const objectiveId = parseInt(target.id.replace('slider-', ''));
-                    const progress = parseInt(target.value);
-                    
-                    updateObjectiveProgress(objectiveId, progress);
-                }
-                
-                // Progress number input
-                else if (target.classList.contains('progress-number')) {
-                    const objectiveId = parseInt(target.id.replace('number-', ''));
-                    let progress = parseInt(target.value);
-                    
-                    if (isNaN(progress) || progress < 0) progress = 0;
-                    if (progress > 100) progress = 100;
-                    
-                    updateObjectiveProgress(objectiveId, progress);
-                }
-                
-                // Save note button
-                else if (target.classList.contains('note-form-btn') && target.classList.contains('save')) {
-                    const objectiveId = parseInt(target.dataset.objectiveId);
-                    const type = target.dataset.type;
-                    const index = parseInt(target.dataset.index);
-                    
-                    saveNote(objectiveId, type, index, target);
-                }
-                
-                // Cancel note button
-                else if (target.classList.contains('note-form-btn') && target.classList.contains('cancel')) {
-                    const objectiveId = parseInt(target.dataset.objectiveId);
-                    const type = target.dataset.type;
-                    const index = parseInt(target.dataset.index);
-                    
-                    cancelNote(objectiveId, type, index);
-                }
-                
-                // Delete note button
-                else if (target.closest('.delete-note-btn')) {
-                    const btn = target.closest('.delete-note-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    const noteIndex = parseInt(btn.dataset.noteIndex);
-                    
-                    deleteNote(objectiveId, type, index, noteIndex);
-                }
-                
-                // Save attachment button
-                else if (target.classList.contains('attachment-form-btn') && target.classList.contains('save')) {
-                    const objectiveId = parseInt(target.dataset.objectiveId);
-                    const type = target.dataset.type;
-                    const index = parseInt(target.dataset.index);
-                    
-                    uploadAttachment(objectiveId, type, index, target);
-                }
-                
-                // Cancel attachment button
-                else if (target.classList.contains('attachment-form-btn') && target.classList.contains('cancel')) {
-                    const objectiveId = parseInt(target.dataset.objectiveId);
-                    const type = target.dataset.type;
-                    const index = parseInt(target.dataset.index);
-                    
-                    cancelAttachment(objectiveId, type, index);
-                }
-                
-                // Delete attachment button
-                else if (target.closest('.delete-attachment-btn')) {
-                    const btn = target.closest('.delete-attachment-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    const attachmentIndex = parseInt(btn.dataset.attachmentIndex);
-                    
-                    deleteAttachment(objectiveId, type, index, attachmentIndex);
-                }
-                
-                // View attachment button
-                else if (target.closest('.view-attachment-btn')) {
-                    const btn = target.closest('.view-attachment-btn');
-                    const objectiveId = parseInt(btn.dataset.objectiveId);
-                    const type = btn.dataset.type;
-                    const index = parseInt(btn.dataset.index);
-                    const attachmentIndex = parseInt(btn.dataset.attachmentIndex);
-                    
-                    viewAttachment(objectiveId, type, index, attachmentIndex);
+                        `Selected: ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
                 }
             });
             
-            // Status select change
-            document.addEventListener('change', function(e) {
-                if (e.target.classList.contains('status-select')) {
-                    const select = e.target;
-                    const objectiveId = parseInt(select.dataset.objectiveId);
-                    const newStatus = select.value;
-                    
-                    // Update the objective status
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        objective.status = newStatus;
-                        // If status changed to completed and progress < 100, set to 100
-                        if (newStatus === 'completed' && objective.progress < 100) {
-                            objective.progress = 100;
-                        }
-                        // If status changed from completed to something else, adjust progress
-                        else if (newStatus !== 'completed' && objective.progress === 100) {
-                            objective.progress = 80; // Default to 80% for in-progress
-                        }
-                        saveToLocalStorage();
-                        updateStats();
+            // Handle input events for progress
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('progress-slider')) {
+                    const progressNumber = e.target.closest('.progress-input-container').querySelector('.progress-number');
+                    if (progressNumber) {
+                        progressNumber.value = e.target.value;
                     }
                 }
                 
-                // File input change event
-                if (e.target.classList.contains('attachment-file-input')) {
-                    const input = e.target;
-                    const objectiveId = parseInt(input.dataset.objectiveId);
-                    const type = input.dataset.type;
-                    const index = parseInt(input.dataset.index);
-                    
-                    const fileName = input.files[0] ? input.files[0].name : 'No file chosen';
-                    const label = input.closest('.file-input-wrapper').querySelector('.file-input-label');
-                    if (label) {
-                        label.innerHTML = `<i class="fas fa-file"></i> ${fileName}`;
+                if (e.target.classList.contains('progress-number')) {
+                    const progressSlider = e.target.closest('.progress-input-container').querySelector('.progress-slider');
+                    if (progressSlider) {
+                        progressSlider.value = e.target.value;
                     }
-                }
-            });
-            
-            // Handle input events for task text editing
-            document.addEventListener('blur', function(e) {
-                if (e.target.classList.contains('task-text-input')) {
-                    const input = e.target;
-                    const objectiveId = parseInt(input.dataset.objectiveId);
-                    const type = input.dataset.type;
-                    const index = parseInt(input.dataset.index);
-                    
-                    saveTaskText(objectiveId, type, index, input.value);
-                }
-            }, true);
-            
-            // Handle Enter key in task text input
-            document.addEventListener('keydown', function(e) {
-                if (e.target.classList.contains('task-text-input') && e.key === 'Enter') {
-                    e.preventDefault();
-                    const input = e.target;
-                    const objectiveId = parseInt(input.dataset.objectiveId);
-                    const type = input.dataset.type;
-                    const index = parseInt(input.dataset.index);
-                    
-                    saveTaskText(objectiveId, type, index, input.value);
-                }
-                
-                // Handle Enter key in objective title input
-                if (e.target.classList.contains('objective-title-input') && e.key === 'Enter') {
-                    e.preventDefault();
-                    const input = e.target;
-                    const objectiveId = parseInt(input.dataset.objectiveId);
-                    saveObjectiveEdit(objectiveId);
-                }
-                
-                // Handle Enter key in period inputs
-                if ((e.target.id === 'period-start' || e.target.id === 'period-end') && e.key === 'Enter') {
-                    e.preventDefault();
-                    savePeriod();
                 }
             });
         }
@@ -2671,6 +3718,7 @@
             // Update display and save
             updatePeriodDisplay();
             saveReviewPeriod();
+            saveProgress();
             
             // Switch back to display mode
             document.querySelector('.date-info-text').style.display = 'flex';
@@ -2730,821 +3778,350 @@
             // Update display and save
             updatePeriodDisplay();
             saveReviewPeriod();
+            saveProgress();
             
             showNotification(`Applied ${period.toUpperCase()} period`);
         }
         
-        // Enter edit mode for objective
-        function enterEditObjectiveMode(objectiveId) {
-            const card = document.querySelector(`.objective-card[data-id="${objectiveId}"]`);
-            if (card) {
-                card.classList.add('editing');
-                const titleInput = card.querySelector('.objective-title-input');
-                if (titleInput) {
-                    titleInput.focus();
-                    titleInput.select();
-                }
-            }
-        }
-        
-        // Save objective edit
-        function saveObjectiveEdit(objectiveId) {
-            const card = document.querySelector(`.objective-card[data-id="${objectiveId}"]`);
-            if (!card) return;
+        // Generate PDF
+        async function generatePDF() {
+            // Show progress modal
+            document.getElementById('pdf-progress').classList.remove('hidden');
+            document.getElementById('pdf-progress-details').textContent = 'Preparing report data...';
             
-            const titleInput = card.querySelector('.objective-title-input');
-            const statusSelect = card.querySelector('.status-select');
+            // Get PDF settings
+            const title = document.getElementById('pdf-title').value || 'Mid-Year Objectives Progress Report';
+            const includeNotes = document.getElementById('notes-yes').checked;
+            const includeAttachments = document.getElementById('attachments-yes').checked;
+            const orientation = document.getElementById('orientation-landscape').checked ? 'landscape' : 'portrait';
+            const pageSize = document.getElementById('page-size').value;
+            const includeDateRange = document.getElementById('date-range-yes').checked;
             
-            if (!titleInput || !statusSelect) return;
-            
-            const newTitle = titleInput.value.trim();
-            const newStatus = statusSelect.value;
-            
-            if (!newTitle) {
-                alert('Objective title cannot be empty');
-                titleInput.focus();
-                return;
+            // Map page size to jsPDF format
+            let pageSizeFormatted = 'a4';
+            switch(pageSize) {
+                case 'letter': pageSizeFormatted = 'letter'; break;
+                case 'legal': pageSizeFormatted = 'legal'; break;
+                case 'a3': pageSizeFormatted = 'a3'; break;
+                default: pageSizeFormatted = 'a4';
             }
             
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (objective) {
-                objective.title = newTitle;
-                objective.status = newStatus;
-                
-                // If status changed to completed and progress < 100, set to 100
-                if (newStatus === 'completed' && objective.progress < 100) {
-                    objective.progress = 100;
-                }
-                // If status changed from completed to something else, adjust progress
-                else if (newStatus !== 'completed' && objective.progress === 100) {
-                    objective.progress = 80; // Default to 80% for in-progress
-                }
-                
-                card.classList.remove('editing');
-                renderObjectives();
-                updateStats();
-                saveToLocalStorage();
-                showNotification('Objective updated successfully');
-            }
-        }
-        
-        // Cancel objective edit
-        function cancelObjectiveEdit(objectiveId) {
-            const card = document.querySelector(`.objective-card[data-id="${objectiveId}"]`);
-            if (card) {
-                card.classList.remove('editing');
-            }
-        }
-        
-        // Confirm delete objective
-        function confirmDeleteObjective(objectiveId) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
+            // Create a new jsPDF instance
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: orientation,
+                unit: 'mm',
+                format: pageSizeFormatted
+            });
             
-            objectiveToDelete = objectiveId;
+            // Set document properties
+            pdf.setProperties({
+                title: title,
+                subject: 'Objectives Progress Report',
+                author: 'Mid-Year Objectives Dashboard',
+                keywords: 'objectives, progress, dashboard, report',
+                creator: 'Mid-Year Objectives Dashboard'
+            });
             
-            const modal = document.getElementById('delete-objective-modal');
-            const text = document.getElementById('delete-objective-text');
+            // Calculate page dimensions
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 15;
+            const contentWidth = pageWidth - (margin * 2);
             
-            text.textContent = `Are you sure you want to delete Objective ${objectiveId}: "${objective.title.substring(0, 100)}${objective.title.length > 100 ? '...' : ''}"? This action cannot be undone and will delete all associated tasks, notes, and attachments.`;
+            // Add title
+            pdf.setFontSize(20);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(title, pageWidth / 2, margin, { align: 'center' });
             
-            modal.classList.add('show');
-        }
-        
-        // Delete objective
-        function deleteObjective(objectiveId) {
-            const index = objectivesData.findIndex(obj => obj.id === objectiveId);
-            if (index !== -1) {
-                objectivesData.splice(index, 1);
-                
-                // Re-index remaining objectives
-                objectivesData.forEach((obj, idx) => {
-                    obj.id = idx + 1;
-                });
-                
-                renderObjectives();
-                updateStats();
-                saveToLocalStorage();
-                showNotification('Objective deleted successfully');
-            }
-        }
-        
-        // Add new objective
-        function addNewObjective() {
-            const newId = objectivesData.length > 0 ? Math.max(...objectivesData.map(obj => obj.id)) + 1 : 1;
-            
-            const newObjective = {
-                id: newId,
-                title: `New Objective ${newId}`,
-                status: "not-started",
-                progress: 0,
-                actionPoints: [
-                    {text: "Add your first action point here", completed: false, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "Add your first KPI here", completed: false, notes: [], attachments: []}
-                ]
-            };
-            
-            objectivesData.push(newObjective);
-            
-            renderObjectives();
-            updateStats();
-            saveToLocalStorage();
-            showNotification('New objective added');
-            
-            // Scroll to the new objective
-            setTimeout(() => {
-                const newCard = document.querySelector(`.objective-card[data-id="${newId}"]`);
-                if (newCard) {
-                    newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Enter edit mode for the new objective
-                    enterEditObjectiveMode(newId);
-                }
-            }, 100);
-        }
-        
-        // Toggle section (notes or attachments)
-        function toggleSection(sectionType, objectiveId, type, index) {
-            const section = document.getElementById(`${sectionType}-section-${objectiveId}-${type}-${index}`);
-            if (section) {
-                // Hide other section if open
-                const otherSectionType = sectionType === 'notes' ? 'attachments' : 'notes';
-                const otherSection = document.getElementById(`${otherSectionType}-section-${objectiveId}-${type}-${index}`);
-                if (otherSection) {
-                    otherSection.style.display = 'none';
-                }
-                
-                // Toggle current section
-                section.style.display = section.style.display === 'block' ? 'none' : 'block';
-            }
-        }
-        
-        // Toggle edit mode for task
-        function toggleEditTask(objectiveId, type, index, button) {
-            const taskItem = document.querySelector(`.task-item[data-objective-id="${objectiveId}"][data-type="${type}"][data-index="${index}"]`);
-            const taskText = taskItem.querySelector('.task-text');
-            const taskInput = taskItem.querySelector('.task-text-input');
-            
-            if (taskText.style.display !== 'none') {
-                // Switch to edit mode
-                taskText.style.display = 'none';
-                taskInput.style.display = 'block';
-                taskInput.focus();
-                taskInput.select();
-                button.innerHTML = '<i class="fas fa-check"></i>';
-            } else {
-                // Switch back to view mode
-                saveTaskText(objectiveId, type, index, taskInput.value);
-            }
-        }
-        
-        // Save task text
-        function saveTaskText(objectiveId, type, index, text) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length) {
-                taskArray[index].text = text.trim();
-                
-                // Update UI
-                const taskItem = document.querySelector(`.task-item[data-objective-id="${objectiveId}"][data-type="${type}"][data-index="${index}"]`);
-                if (taskItem) {
-                    const taskText = taskItem.querySelector('.task-text');
-                    const taskInput = taskItem.querySelector('.task-text-input');
-                    const editBtn = taskItem.querySelector('.edit-btn');
-                    
-                    taskText.textContent = text.trim();
-                    taskText.style.display = 'flex';
-                    taskInput.style.display = 'none';
-                    editBtn.innerHTML = '<i class="fas fa-edit"></i>';
-                }
-                
-                saveToLocalStorage();
-                showNotification('Task updated');
-            }
-        }
-        
-        // Delete task
-        function deleteTask(objectiveId, type, index) {
-            if (!confirm('Are you sure you want to delete this task?')) return;
-            
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length) {
-                taskArray.splice(index, 1);
-                
-                // Update progress
-                updateObjectiveProgressFromTasks(objectiveId);
-                renderObjectives();
-                updateStats();
-                saveToLocalStorage();
-                showNotification('Task deleted');
-            }
-        }
-        
-        // Add task
-        function addTask(objectiveId, type) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            const newTask = {
-                text: `New ${type === 'action' ? 'action point' : 'KPI'}`,
-                completed: false,
-                notes: [],
-                attachments: []
-            };
-            
-            taskArray.push(newTask);
-            
-            // Update progress
-            updateObjectiveProgressFromTasks(objectiveId);
-            renderObjectives();
-            updateStats();
-            saveToLocalStorage();
-            showNotification(`New ${type === 'action' ? 'action point' : 'KPI'} added`);
-        }
-        
-        // Update task completion
-        function updateTaskCompletion(objectiveId, type, index, completed) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length) {
-                taskArray[index].completed = completed;
-                
-                // Update UI
-                const taskItem = document.querySelector(`.task-item[data-objective-id="${objectiveId}"][data-type="${type}"][data-index="${index}"]`);
-                if (taskItem) {
-                    const taskText = taskItem.querySelector('.task-text');
-                    taskText.classList.toggle('completed', completed);
-                }
-                
-                // Update progress
-                updateObjectiveProgressFromTasks(objectiveId);
-                updateStats();
-                saveToLocalStorage();
-                
-                // Check if we should show reminders again
-                checkReminders();
-            }
-        }
-        
-        // Update objective progress
-        function updateObjectiveProgress(objectiveId, progress) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            objective.progress = progress;
-            objective.status = updateObjectiveStatus(objective);
-            
-            // Update UI
-            const progressFill = document.getElementById(`progress-fill-${objectiveId}`);
-            if (progressFill) {
-                progressFill.style.width = `${progress}%`;
-                progressFill.style.backgroundColor = getProgressColor(progress);
+            // Add date range if included
+            let currentY = margin + 10;
+            if (includeDateRange) {
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`Review Period: ${reviewPeriod.display}`, pageWidth / 2, currentY, { align: 'center' });
+                currentY += 7;
             }
             
-            const slider = document.getElementById(`slider-${objectiveId}`);
-            const numberInput = document.getElementById(`number-${objectiveId}`);
-            if (slider) slider.value = progress;
-            if (numberInput) numberInput.value = progress;
+            // Add generation date
+            pdf.setFontSize(10);
+            pdf.text(`Generated on: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, currentY, { align: 'center' });
+            currentY += 15;
             
-            // Update status badge
-            const card = document.querySelector(`.objective-card[data-id="${objectiveId}"]`);
-            if (card) {
-                const statusBadge = card.querySelector('.status-badge');
-                if (statusBadge) {
-                    let statusText = '';
-                    let statusClass = '';
-                    switch(objective.status) {
-                        case 'not-started': 
-                            statusText = 'Not Started'; 
-                            statusClass = 'status-not-started';
-                            break;
-                        case 'in-progress': 
-                            statusText = 'In Progress'; 
-                            statusClass = 'status-in-progress';
-                            break;
-                        case 'completed': 
-                            statusText = 'Completed'; 
-                            statusClass = 'status-completed';
-                            break;
-                    }
-                    statusBadge.className = `status-badge ${statusClass}`;
-                    statusBadge.textContent = statusText;
-                }
-                
-                // Also update the status select if in edit mode
-                const statusSelect = card.querySelector('.status-select');
-                if (statusSelect) {
-                    statusSelect.value = objective.status;
-                }
-            }
+            // Add summary section
+            pdf.setFontSize(16);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Executive Summary', margin, currentY);
+            currentY += 8;
             
-            updateStats();
-            saveToLocalStorage();
-        }
-        
-        // Update objective progress from tasks
-        function updateObjectiveProgressFromTasks(objectiveId) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const allTasks = [...objective.actionPoints, ...objective.kpis];
-            const completedTasks = allTasks.filter(task => task.completed).length;
-            const progress = allTasks.length > 0 ? Math.round((completedTasks / allTasks.length) * 100) : 0;
-            
-            objective.progress = progress;
-            objective.status = updateObjectiveStatus(objective);
-            
-            // Update UI
-            const progressFill = document.getElementById(`progress-fill-${objectiveId}`);
-            if (progressFill) {
-                progressFill.style.width = `${progress}%`;
-                progressFill.style.backgroundColor = getProgressColor(progress);
-            }
-            
-            const slider = document.getElementById(`slider-${objectiveId}`);
-            const numberInput = document.getElementById(`number-${objectiveId}`);
-            if (slider) slider.value = progress;
-            if (numberInput) numberInput.value = progress;
-        }
-        
-        // Update objective status based on progress
-        function updateObjectiveStatus(objective) {
-            if (objective.progress === 0) return "not-started";
-            if (objective.progress === 100) return "completed";
-            return "in-progress";
-        }
-        
-        // Save note
-        function saveNote(objectiveId, type, index, button) {
-            const notesSection = button.closest('.task-notes-section');
-            const dateInput = notesSection.querySelector('.note-date-input');
-            const textInput = notesSection.querySelector('.note-text-input');
-            
-            const date = dateInput.value;
-            const text = textInput.value.trim();
-            
-            if (!text) {
-                alert('Please enter note text');
-                return;
-            }
-            
-            if (!date) {
-                alert('Please select a date');
-                return;
-            }
-            
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length) {
-                if (!taskArray[index].notes) {
-                    taskArray[index].notes = [];
-                }
-                
-                taskArray[index].notes.push({
-                    date: date,
-                    text: text
-                });
-                
-                // Clear inputs
-                dateInput.value = new Date().toISOString().split('T')[0];
-                textInput.value = '';
-                
-                // Re-render to show new note
-                renderObjectives();
-                saveToLocalStorage();
-                showNotification('Note added');
-                
-                // Check for reminders
-                setTimeout(checkReminders, 500);
-            }
-        }
-        
-        // Cancel note
-        function cancelNote(objectiveId, type, index) {
-            const notesSection = document.getElementById(`notes-section-${objectiveId}-${type}-${index}`);
-            if (notesSection) {
-                const dateInput = notesSection.querySelector('.note-date-input');
-                const textInput = notesSection.querySelector('.note-text-input');
-                
-                dateInput.value = new Date().toISOString().split('T')[0];
-                textInput.value = '';
-            }
-        }
-        
-        // Delete note
-        function deleteNote(objectiveId, type, index, noteIndex) {
-            if (!confirm('Are you sure you want to delete this note?')) return;
-            
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length && taskArray[index].notes) {
-                taskArray[index].notes.splice(noteIndex, 1);
-                
-                // Re-render to update notes display
-                renderObjectives();
-                saveToLocalStorage();
-                showNotification('Note deleted');
-                
-                // Check for reminders
-                setTimeout(checkReminders, 500);
-            }
-        }
-        
-        // Upload attachment
-        function uploadAttachment(objectiveId, type, index, button) {
-            const attachmentsSection = button.closest('.task-attachments-section');
-            const fileInput = attachmentsSection.querySelector('.attachment-file-input');
-            
-            if (!fileInput.files || fileInput.files.length === 0) {
-                alert('Please select a file to upload');
-                return;
-            }
-            
-            const file = fileInput.files[0];
-            
-            // Check file size
-            if (file.size > MAX_FILE_SIZE) {
-                alert(`File size exceeds the 5MB limit. Selected file is ${formatFileSize(file.size)}.`);
-                return;
-            }
-            
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length) {
-                if (!taskArray[index].attachments) {
-                    taskArray[index].attachments = [];
-                }
-                
-                // Show upload progress
-                const progressElement = document.getElementById(`upload-progress-${objectiveId}-${type}-${index}`);
-                progressElement.classList.add('active');
-                
-                // Read file as base64
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const attachment = {
-                        name: file.name,
-                        type: file.type,
-                        size: file.size,
-                        data: e.target.result,
-                        uploaded: new Date().toISOString()
-                    };
-                    
-                    taskArray[index].attachments.push(attachment);
-                    
-                    // Hide progress
-                    progressElement.classList.remove('active');
-                    
-                    // Clear file input
-                    fileInput.value = '';
-                    
-                    // Reset file label
-                    const label = fileInput.closest('.file-input-wrapper').querySelector('.file-input-label');
-                    if (label) {
-                        label.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Choose file to upload';
-                    }
-                    
-                    // Re-render to show new attachment
-                    renderObjectives();
-                    updateStats();
-                    saveToLocalStorage();
-                    showNotification(`File "${file.name}" uploaded successfully`);
-                };
-                
-                reader.onerror = function() {
-                    progressElement.classList.remove('active');
-                    alert('Error reading file. Please try again.');
-                };
-                
-                reader.readAsDataURL(file);
-            }
-        }
-        
-        // Cancel attachment upload
-        function cancelAttachment(objectiveId, type, index) {
-            const attachmentsSection = document.getElementById(`attachments-section-${objectiveId}-${type}-${index}`);
-            if (attachmentsSection) {
-                const fileInput = attachmentsSection.querySelector('.attachment-file-input');
-                const label = fileInput.closest('.file-input-wrapper').querySelector('.file-input-label');
-                
-                fileInput.value = '';
-                if (label) {
-                    label.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Choose file to upload';
-                }
-            }
-        }
-        
-        // Delete attachment
-        function deleteAttachment(objectiveId, type, index, attachmentIndex) {
-            if (!confirm('Are you sure you want to delete this attachment?')) return;
-            
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length && taskArray[index].attachments) {
-                taskArray[index].attachments.splice(attachmentIndex, 1);
-                
-                // Re-render to update attachments display
-                renderObjectives();
-                updateStats();
-                saveToLocalStorage();
-                showNotification('Attachment deleted');
-            }
-        }
-        
-        // View attachment
-        function viewAttachment(objectiveId, type, index, attachmentIndex) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length && taskArray[index].attachments) {
-                const attachment = taskArray[index].attachments[attachmentIndex];
-                if (!attachment) return;
-                
-                const modal = document.getElementById('file-preview-modal');
-                const container = document.getElementById('file-preview-container');
-                const downloadBtn = document.getElementById('download-file-btn');
-                
-                // Clear previous content
-                container.innerHTML = '';
-                
-                // Set download link
-                downloadBtn.href = attachment.data;
-                downloadBtn.download = attachment.name;
-                
-                // Create preview based on file type
-                if (IMAGE_TYPES.includes(attachment.type)) {
-                    // Image preview
-                    const img = document.createElement('img');
-                    img.src = attachment.data;
-                    img.alt = attachment.name;
-                    img.className = 'file-preview';
-                    container.appendChild(img);
-                } else if (PDF_TYPES.includes(attachment.type)) {
-                    // PDF preview (using iframe)
-                    const iframe = document.createElement('iframe');
-                    iframe.src = attachment.data;
-                    iframe.width = '100%';
-                    iframe.height = '500px';
-                    iframe.style.border = 'none';
-                    container.appendChild(iframe);
-                } else if (TEXT_TYPES.includes(attachment.type)) {
-                    // Text preview
-                    try {
-                        const textArea = document.createElement('textarea');
-                        // Decode base64
-                        const base64Data = attachment.data.split(',')[1];
-                        if (base64Data) {
-                            textArea.value = atob(base64Data);
-                        } else {
-                            textArea.value = "Unable to decode file content";
-                        }
-                        textArea.readOnly = true;
-                        textArea.style.width = '100%';
-                        textArea.style.height = '500px';
-                        textArea.style.fontFamily = 'monospace';
-                        textArea.style.padding = '10px';
-                        container.appendChild(textArea);
-                    } catch (e) {
-                        container.innerHTML = `<div class="unsupported-file">
-                            <i class="fas fa-file"></i>
-                            <h4>Unable to display file content</h4>
-                            <p>Error: ${e.message}</p>
-                        </div>`;
-                    }
-                } else {
-                    // Unsupported file type
-                    container.innerHTML = `
-                        <div class="unsupported-file">
-                            <i class="fas fa-file"></i>
-                            <h4>File Preview Not Available</h4>
-                            <p>Preview is not available for this file type.</p>
-                            <div class="file-info">
-                                <p><strong>File Name:</strong> ${attachment.name}</p>
-                                <p><strong>File Type:</strong> ${attachment.type || 'Unknown'}</p>
-                                <p><strong>File Size:</strong> ${formatFileSize(attachment.size)}</p>
-                                <p><strong>Uploaded:</strong> ${formatDate(attachment.uploaded)}</p>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                modal.classList.add('show');
-            }
-        }
-        
-        // Check for reminders based on note dates
-        function checkReminders() {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const reminders = [];
+            // Calculate summary statistics
+            let totalTasks = 0;
+            let completedTasks = 0;
+            let totalAttachments = 0;
+            let inProgressCount = 0;
+            let notStartedCount = 0;
+            let completedCount = 0;
             
             objectivesData.forEach(objective => {
-                // Check action points
-                objective.actionPoints.forEach((action, actionIndex) => {
-                    if (action.completed) return; // Skip completed tasks
+                const allTasks = [...objective.actionPoints, ...objective.kpis];
+                totalTasks += allTasks.length;
+                completedTasks += allTasks.filter(task => task.completed).length;
+                
+                // Count attachments
+                allTasks.forEach(task => {
+                    if (task.attachments) {
+                        totalAttachments += task.attachments.length;
+                    }
+                });
+                
+                // Count status
+                if (objective.status === 'in-progress') inProgressCount++;
+                else if (objective.status === 'not-started') notStartedCount++;
+                else if (objective.status === 'completed') completedCount++;
+            });
+            
+            const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            
+            // Add summary content
+            pdf.setFontSize(11);
+            pdf.setFont('helvetica', 'normal');
+            
+            const summaryLines = [
+                `• Total Objectives: ${objectivesData.length}`,
+                `• Overall Progress: ${overallProgress}%`,
+                `• Completed Tasks: ${completedTasks} of ${totalTasks}`,
+                `• Objectives Status: ${completedCount} Completed, ${inProgressCount} In Progress, ${notStartedCount} Not Started`,
+                `• Total Attachments: ${totalAttachments} evidence files`
+            ];
+            
+            summaryLines.forEach(line => {
+                pdf.text(line, margin + 5, currentY);
+                currentY += 6;
+            });
+            
+            currentY += 10;
+            
+            // Add objectives section
+            pdf.setFontSize(16);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Detailed Objectives', margin, currentY);
+            currentY += 10;
+            
+            // Track page breaks
+            let pageNumber = 1;
+            
+            // Process each objective
+            for (let i = 0; i < objectivesData.length; i++) {
+                const objective = objectivesData[i];
+                
+                // Check if we need a new page
+                if (currentY > pageHeight - 50) {
+                    pdf.addPage();
+                    pageNumber++;
+                    currentY = margin;
                     
-                    if (action.notes && action.notes.length > 0) {
+                    // Add page header with page number
+                    pdf.setFontSize(10);
+                    pdf.setFont('helvetica', 'italic');
+                    pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
+                    pdf.text(title, margin, margin - 5);
+                }
+                
+                // Add objective title
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                const objectiveTitle = `Objective ${objective.id}: ${objective.title}`;
+                const splitTitle = pdf.splitTextToSize(objectiveTitle, contentWidth - 20);
+                pdf.text(splitTitle, margin, currentY);
+                currentY += (splitTitle.length * 7) + 3;
+                
+                // Add status and progress
+                pdf.setFontSize(11);
+                pdf.setFont('helvetica', 'normal');
+                let statusText = '';
+                switch(objective.status) {
+                    case 'not-started': statusText = 'Not Started'; break;
+                    case 'in-progress': statusText = 'In Progress'; break;
+                    case 'completed': statusText = 'Completed'; break;
+                }
+                pdf.text(`Status: ${statusText} | Progress: ${objective.progress}%`, margin, currentY);
+                currentY += 8;
+                
+                // Add action points
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Key Action Points:', margin, currentY);
+                currentY += 7;
+                
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'normal');
+                objective.actionPoints.forEach((action, index) => {
+                    if (currentY > pageHeight - 30) {
+                        pdf.addPage();
+                        pageNumber++;
+                        currentY = margin;
+                        
+                        // Add page header with page number
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'italic');
+                        pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
+                        pdf.text(title, margin, margin - 5);
+                    }
+                    
+                    const checkbox = action.completed ? '✓' : '□';
+                    const actionText = `  ${checkbox} ${action.text}`;
+                    const splitAction = pdf.splitTextToSize(actionText, contentWidth - 10);
+                    pdf.text(splitAction, margin + 5, currentY);
+                    currentY += (splitAction.length * 5) + 2;
+                    
+                    // Add notes if included
+                    if (includeNotes && action.notes && action.notes.length > 0) {
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'italic');
                         action.notes.forEach(note => {
-                            if (note.date) {
-                                const noteDate = new Date(note.date);
-                                noteDate.setHours(0, 0, 0, 0);
-                                
-                                // Check if note date is today or in the past
-                                if (noteDate <= today) {
-                                    const daysDiff = Math.floor((today - noteDate) / (1000 * 60 * 60 * 24));
-                                    let status = 'Today';
-                                    if (daysDiff > 0) {
-                                        status = `${daysDiff} day${daysDiff > 1 ? 's' : ''} overdue`;
-                                    }
-                                    
-                                    reminders.push({
-                                        objectiveId: objective.id,
-                                        type: 'action',
-                                        index: actionIndex,
-                                        taskText: action.text,
-                                        noteText: note.text,
-                                        date: note.date,
-                                        status: status,
-                                        daysDiff: daysDiff
-                                    });
-                                }
-                            }
+                            const noteText = `    • ${formatDate(note.date)}: ${note.text}`;
+                            const splitNote = pdf.splitTextToSize(noteText, contentWidth - 15);
+                            pdf.text(splitNote, margin + 10, currentY);
+                            currentY += (splitNote.length * 4.5) + 1;
                         });
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'normal');
                     }
                 });
                 
-                // Check KPIs
-                objective.kpis.forEach((kpi, kpiIndex) => {
-                    if (kpi.completed) return; // Skip completed tasks
+                currentY += 5;
+                
+                // Add KPIs
+                pdf.setFontSize(12);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Key Performance Indicators:', margin, currentY);
+                currentY += 7;
+                
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'normal');
+                objective.kpis.forEach((kpi, index) => {
+                    if (currentY > pageHeight - 30) {
+                        pdf.addPage();
+                        pageNumber++;
+                        currentY = margin;
+                        
+                        // Add page header with page number
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'italic');
+                        pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
+                        pdf.text(title, margin, margin - 5);
+                    }
                     
-                    if (kpi.notes && kpi.notes.length > 0) {
+                    const checkbox = kpi.completed ? '✓' : '□';
+                    const kpiText = `  ${checkbox} ${kpi.text}`;
+                    const splitKpi = pdf.splitTextToSize(kpiText, contentWidth - 10);
+                    pdf.text(splitKpi, margin + 5, currentY);
+                    currentY += (splitKpi.length * 5) + 2;
+                    
+                    // Add notes if included
+                    if (includeNotes && kpi.notes && kpi.notes.length > 0) {
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'italic');
                         kpi.notes.forEach(note => {
-                            if (note.date) {
-                                const noteDate = new Date(note.date);
-                                noteDate.setHours(0, 0, 0, 0);
-                                
-                                // Check if note date is today or in the past
-                                if (noteDate <= today) {
-                                    const daysDiff = Math.floor((today - noteDate) / (1000 * 60 * 60 * 24));
-                                    let status = 'Today';
-                                    if (daysDiff > 0) {
-                                        status = `${daysDiff} day${daysDiff > 1 ? 's' : ''} overdue`;
-                                    }
-                                    
-                                    reminders.push({
-                                        objectiveId: objective.id,
-                                        type: 'kpi',
-                                        index: kpiIndex,
-                                        taskText: kpi.text,
-                                        noteText: note.text,
-                                        date: note.date,
-                                        status: status,
-                                        daysDiff: daysDiff
-                                    });
-                                }
-                            }
+                            const noteText = `    • ${formatDate(note.date)}: ${note.text}`;
+                            const splitNote = pdf.splitTextToSize(noteText, contentWidth - 15);
+                            pdf.text(splitNote, margin + 10, currentY);
+                            currentY += (splitNote.length * 4.5) + 1;
                         });
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'normal');
                     }
                 });
-            });
-            
-            // Sort reminders by how overdue they are (most overdue first)
-            reminders.sort((a, b) => b.daysDiff - a.daysDiff);
-            
-            // Show reminders if there are any
-            if (reminders.length > 0 && !remindersShown) {
-                showReminderNotification(reminders);
-            }
-            
-            return reminders;
-        }
-        
-        // Show reminder notification
-        function showReminderNotification(reminders) {
-            const notification = document.getElementById('reminder-notification');
-            const content = document.getElementById('reminder-content');
-            
-            let html = `<p>You have <strong>${reminders.length}</strong> task reminder${reminders.length > 1 ? 's' : ''}:</p>`;
-            html += '<ul class="reminder-list">';
-            
-            // Show up to 5 reminders in notification
-            const displayReminders = reminders.slice(0, 5);
-            
-            displayReminders.forEach(reminder => {
-                html += `
-                    <li class="reminder-item">
-                        <div><strong>${reminder.taskText.substring(0, 50)}${reminder.taskText.length > 50 ? '...' : ''}</strong></div>
-                        <div style="font-size: 0.85rem;">Due: ${formatDate(reminder.date)} (${reminder.status})</div>
-                    </li>
-                `;
-            });
-            
-            if (reminders.length > 5) {
-                html += `<li>... and ${reminders.length - 5} more</li>`;
-            }
-            
-            html += '</ul>';
-            content.innerHTML = html;
-            
-            notification.classList.add('show');
-            remindersShown = true;
-            
-            // Auto-dismiss after 15 seconds
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 15000);
-        }
-        
-        // Show reminders modal with all reminders
-        function showRemindersModal() {
-            const reminders = checkReminders();
-            const container = document.getElementById('reminders-list-container');
-            
-            if (reminders.length === 0) {
-                container.innerHTML = '<p>No reminders at this time. All tasks are up to date!</p>';
-            } else {
-                let html = `<p>You have <strong>${reminders.length}</strong> task reminder${reminders.length > 1 ? 's' : ''}:</p>`;
-                html += '<ul class="reminder-list" style="margin-top: 15px;">';
                 
-                reminders.forEach(reminder => {
-                    const taskType = reminder.type === 'action' ? 'Action Point' : 'KPI';
-                    const objective = objectivesData.find(obj => obj.id === reminder.objectiveId);
-                    const objectiveTitle = objective ? objective.title.substring(0, 60) + (objective.title.length > 60 ? '...' : '') : 'Objective';
+                currentY += 15;
+                
+                // Add attachments list if included
+                if (includeAttachments) {
+                    // Collect all attachments for this objective
+                    const allAttachments = [];
+                    objective.actionPoints.forEach(ap => {
+                        if (ap.attachments && ap.attachments.length > 0) {
+                            ap.attachments.forEach(att => {
+                                allAttachments.push({...att, source: 'Action Point', task: ap.text});
+                            });
+                        }
+                    });
+                    objective.kpis.forEach(kpi => {
+                        if (kpi.attachments && kpi.attachments.length > 0) {
+                            kpi.attachments.forEach(att => {
+                                allAttachments.push({...att, source: 'KPI', task: kpi.text});
+                            });
+                        }
+                    });
                     
-                    html += `
-                        <li class="reminder-item" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-                            <div><strong>${taskType}:</strong> ${reminder.taskText}</div>
-                            <div style="font-size: 0.9rem; margin-top: 5px;"><strong>Objective:</strong> ${objectiveTitle}</div>
-                            <div style="font-size: 0.9rem; margin-top: 5px;"><strong>Note:</strong> ${reminder.noteText}</div>
-                            <div style="font-size: 0.85rem; margin-top: 5px; color: ${reminder.daysDiff > 0 ? '#e74c3c' : '#f39c12'}">
-                                <strong>Due:</strong> ${formatDate(reminder.date)} (${reminder.status})
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <button onclick="markTaskAsCompleted(${reminder.objectiveId}, '${reminder.type}', ${reminder.index})" style="padding: 5px 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">
-                                    <i class="fas fa-check"></i> Mark as Completed
-                                </button>
-                            </div>
-                        </li>
-                    `;
-                });
+                    if (allAttachments.length > 0) {
+                        if (currentY > pageHeight - 50) {
+                            pdf.addPage();
+                            pageNumber++;
+                            currentY = margin;
+                            
+                            // Add page header with page number
+                            pdf.setFontSize(10);
+                            pdf.setFont('helvetica', 'italic');
+                            pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
+                            pdf.text(title, margin, margin - 5);
+                        }
+                        
+                        pdf.setFontSize(11);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.text(`Attachments (${allAttachments.length}):`, margin, currentY);
+                        currentY += 7;
+                        
+                        pdf.setFontSize(9);
+                        pdf.setFont('helvetica', 'normal');
+                        allAttachments.forEach((att, idx) => {
+                            if (currentY > pageHeight - 30) {
+                                pdf.addPage();
+                                pageNumber++;
+                                currentY = margin;
+                                
+                                // Add page header with page number
+                                pdf.setFontSize(10);
+                                pdf.setFont('helvetica', 'italic');
+                                pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
+                                pdf.text(title, margin, margin - 5);
+                            }
+                            
+                            const attText = `  ${idx + 1}. ${att.name} (${formatFileSize(att.size)}) - ${att.source}: ${att.task.substring(0, 50)}${att.task.length > 50 ? '...' : ''}`;
+                            const splitAtt = pdf.splitTextToSize(attText, contentWidth - 10);
+                            pdf.text(splitAtt, margin + 5, currentY);
+                            currentY += (splitAtt.length * 4.5) + 2;
+                        });
+                        
+                        currentY += 10;
+                    }
+                }
                 
-                html += '</ul>';
-                container.innerHTML = html;
-            }
-            
-            document.getElementById('reminders-modal').classList.add('show');
-        }
-        
-        // Mark task as completed from reminder
-        window.markTaskAsCompleted = function(objectiveId, type, index) {
-            const objective = objectivesData.find(obj => obj.id === objectiveId);
-            if (!objective) return;
-            
-            const taskArray = type === 'action' ? objective.actionPoints : objective.kpis;
-            if (index >= 0 && index < taskArray.length) {
-                taskArray[index].completed = true;
+                // Add separator between objectives
+                if (i < objectivesData.length - 1) {
+                    pdf.setDrawColor(200, 200, 200);
+                    pdf.line(margin, currentY, pageWidth - margin, currentY);
+                    currentY += 15;
+                }
                 
                 // Update progress
-                updateObjectiveProgressFromTasks(objectiveId);
-                renderObjectives();
-                updateStats();
-                saveToLocalStorage();
-                showNotification('Task marked as completed');
-                
-                // Close modal and refresh reminders
-                document.getElementById('reminders-modal').classList.remove('show');
-                setTimeout(checkReminders, 500);
+                document.getElementById('pdf-progress-details').textContent = `Processing objective ${i + 1} of ${objectivesData.length}...`;
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
-        };
-        
-        // Generate PDF
-        function generatePDF() {
-            showNotification('Generating PDF report...');
             
-            // Simple PDF generation alert
-            alert('PDF generation would require additional libraries. For now, you can:\n\n1. Take a screenshot of the dashboard\n2. Use your browser\'s "Print to PDF" feature\n3. Save your data using the "Save Progress" button');
+            // Add footer on last page
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'italic');
+            pdf.text('Generated by Mid-Year Objectives Dashboard', pageWidth / 2, pageHeight - 10, { align: 'center' });
             
-            // Alternative: Open print dialog
-            // window.print();
+            // Hide progress modal
+            document.getElementById('pdf-progress').classList.add('hidden');
+            
+            // Save the PDF
+            const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            pdf.save(fileName);
+            
+            showNotification('PDF report generated successfully!');
         }
     </script>
 </body>
