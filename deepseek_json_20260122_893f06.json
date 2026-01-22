@@ -1,0 +1,26 @@
+{
+  "name": "performance-appraisal-dashboard",
+  "version": "1.0.0",
+  "description": "Performance Appraisal Progress Dashboard",
+  "main": "index.html",
+  "scripts": {
+    "start": "live-server --port=8080",
+    "deploy": "gh-pages -d ."
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "gh-pages": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/[your-username]/[repository-name].git"
+  },
+  "keywords": [
+    "dashboard",
+    "performance",
+    "appraisal",
+    "tracking"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
