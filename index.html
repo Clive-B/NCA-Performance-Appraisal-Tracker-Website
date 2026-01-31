@@ -9,6 +9,290 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
+        /* Add login system styles */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            padding: 20px;
+        }
+
+        .auth-box {
+            background-color: white;
+            border-radius: 10px;
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .auth-header p {
+            color: #7f8c8d;
+        }
+
+        .nca-logo-auth {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .nca-logo {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            color: #2c3e50;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+
+        .nca-logo .top-line {
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        .nca-logo .middle-line {
+            font-size: 3rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: #e74c3c;
+        }
+
+        .nca-logo .bottom-line {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.3s;
+        }
+
+        .auth-tab.active {
+            color: #3498db;
+            border-bottom: 3px solid #3498db;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .auth-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .auth-btn.secondary {
+            background-color: #7f8c8d;
+        }
+
+        .auth-btn.secondary:hover {
+            background-color: #6c7a7d;
+        }
+
+        .auth-error {
+            background-color: #ffebee;
+            color: #c0392b;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .auth-success {
+            background-color: #d5f4e6;
+            color: #27ae60;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .auth-links {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .auth-links a {
+            color: #3498db;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 6px;
+            color: white;
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .user-menu {
+            position: relative;
+        }
+
+        .user-menu-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .user-menu-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            min-width: 180px;
+            display: none;
+            z-index: 1000;
+            margin-top: 8px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+
+        .user-dropdown.show {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-dropdown-item {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #333;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+        }
+
+        .user-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-dropdown-item:hover {
+            background-color: #f5f7fa;
+        }
+
+        .user-dropdown-item.logout {
+            color: #e74c3c;
+        }
+
+        .user-dropdown-item.logout:hover {
+            background-color: #ffebee;
+        }
+
+        /* Hide dashboard by default */
+        .dashboard-container {
+            display: none;
+        }
+
+        /* Keep all existing styles below */
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
@@ -31,13 +315,13 @@
         body {
             background-color: #f5f7fa;
             color: var(--text-color);
-            padding: 20px;
             line-height: 1.6;
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 20px;
         }
         
         header {
@@ -47,10 +331,43 @@
             border-radius: 10px;
             margin-bottom: 30px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .header-left {
+            flex: 1;
+        }
+        
+        .nca-logo-header {
+            font-family: Arial, sans-serif;
+            color: white;
+            font-weight: bold;
+            line-height: 1.2;
+            margin-bottom: 15px;
+        }
+
+        .nca-logo-header .top-line {
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            margin-bottom: 3px;
+        }
+
+        .nca-logo-header .middle-line {
+            font-size: 3.2rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: #e74c3c;
+        }
+
+        .nca-logo-header .bottom-line {
+            font-size: 1.2rem;
+            letter-spacing: 1px;
         }
         
         h1 {
-            font-size: 2.2rem;
+            font-size: 2rem;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
@@ -1278,445 +1595,1069 @@
                 display: none !important;
             }
         }
+
+        /* Sign Out Button Styles */
+        .sign-out-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+
+        .sign-out-btn:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .sign-out-btn-container {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
+            gap: 10px;
+        }
+
+        /* Admin controls */
+        .admin-controls {
+            margin-top: 10px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .admin-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .admin-btn:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .admin-btn.warning {
+            background-color: #f39c12;
+        }
+
+        .admin-btn.warning:hover {
+            background-color: #d35400;
+        }
+
+        .admin-btn.success {
+            background-color: #27ae60;
+        }
+
+        .admin-btn.success:hover {
+            background-color: #219653;
+        }
+
+        @media (max-width: 768px) {
+            .sign-out-btn-container {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+                justify-content: flex-end;
+            }
+            
+            .sign-out-btn {
+                padding: 8px 15px;
+                font-size: 0.85rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-chart-line"></i> NCA Performance Appraisal Progress Dashboard</h1>
-            <p class="subtitle">Track your performance objectives, key action points, and KPIs to stay on target</p>
-            <div class="date-info">
-                <div class="date-info-text">
-                    <i class="far fa-calendar-alt"></i>
-                    <span id="period-display">Mid-Year Review Period (June 2024 - July 2024)</span>
-                    <span id="edit-period-btn" style="margin-left: 10px; font-size: 0.9rem;">
-                        <i class="fas fa-edit"></i> Edit
-                    </span>
-                </div>
-                <div class="date-range-inputs" id="date-range-inputs">
-                    <input type="text" id="period-start" placeholder="Start Date (MM/YYYY)" class="calendar-input">
-                    <i class="far fa-calendar calendar-icon" id="calendar-start-icon"></i>
-                    <span>to</span>
-                    <input type="text" id="period-end" placeholder="End Date (MM/YYYY)" class="calendar-input">
-                    <i class="far fa-calendar calendar-icon" id="calendar-end-icon"></i>
-                    <button id="save-period-btn">Save</button>
-                    <button class="cancel-btn" id="cancel-period-btn">Cancel</button>
+    <!-- Authentication Container (shown by default) -->
+    <div id="auth-container" class="auth-container">
+        <div class="auth-box">
+            <div class="nca-logo-auth">
+                <div class="nca-logo">
+                    <div class="top-line">NATIONAL COMMUNICATIONS</div>
+                    <div class="middle-line">NCA</div>
+                    <div class="bottom-line">AUTHORITY</div>
                 </div>
             </div>
-            <div class="preset-periods" id="preset-periods">
-                <button class="preset-btn" data-period="q1">Q1 (Jan-Mar)</button>
-                <button class="preset-btn" data-period="q2">Q2 (Apr-Jun)</button>
-                <button class="preset-btn" data-period="q3">Q3 (Jul-Sep)</button>
-                <button class="preset-btn" data-period="q4">Q4 (Oct-Dec)</button>
-                <button class="preset-btn" data-period="h1">H1 (Jan-Jun)</button>
-                <button class="preset-btn" data-period="h2">H2 (Jul-Dec)</button>
-                <button class="preset-btn" data-period="midyear">Mid-Year (Jun-Jul)</button>
-                <button class="preset-btn" data-period="yearend">Year-End (Nov-Dec)</button>
+            
+            <div class="auth-header">
+                <h1><i class="fas fa-chart-line"></i> Performance Dashboard</h1>
+                <p>Track your performance objectives and stay on target</p>
             </div>
-        </header>
-        
-        <div class="dashboard-stats">
-            <div class="stat-card">
-                <div class="stat-icon stat-1">
-                    <i class="fas fa-bullseye"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="total-objectives">6</h3>
-                    <p>Total Objectives</p>
-                </div>
+            
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
+                <div class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon stat-2">
-                    <i class="fas fa-tasks"></i>
+            
+            <div class="auth-error" id="auth-error"></div>
+            <div class="auth-success" id="auth-success"></div>
+            
+            <!-- Login Form -->
+            <div id="login-form" class="auth-form active">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required placeholder="Enter your email">
                 </div>
-                <div class="stat-info">
-                    <h3 id="completed-tasks">0</h3>
-                    <p>Completed Tasks</p>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required placeholder="Enter your password">
                 </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon stat-3">
-                    <i class="fas fa-chart-pie"></i>
-                </div>
-                <div class="stat-info">
-                    <h3 id="overall-progress">0%</h3>
-                    <p>Overall Progress</p>
+                <button type="button" class="auth-btn" onclick="login()">Login</button>
+                <div class="auth-links">
+                    <p>Don't have an account? <a onclick="switchAuthTab('signup')">Sign up here</a></p>
+                    <p>Forgot password? <a onclick="switchAuthTab('forgot')">Reset password</a></p>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon stat-4">
-                    <i class="fas fa-paperclip"></i>
+            
+            <!-- Signup Form -->
+            <div id="signup-form" class="auth-form">
+                <div class="form-group">
+                    <label for="signup-name">Full Name</label>
+                    <input type="text" id="signup-name" required placeholder="Enter your full name">
                 </div>
-                <div class="stat-info">
-                    <h3 id="total-attachments">0</h3>
-                    <p>Total Attachments</p>
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" required placeholder="Enter your email">
                 </div>
-            </div>
-        </div>
-        
-        <div class="controls">
-            <div class="filter-controls">
-                <button class="filter-btn active" data-filter="all">
-                    <i class="fas fa-layer-group"></i> All Objectives
-                </button>
-                <button class="filter-btn" data-filter="not-started">
-                    <i class="far fa-circle"></i> Not Started
-                </button>
-                <button class="filter-btn" data-filter="in-progress">
-                    <i class="fas fa-spinner"></i> In Progress
-                </button>
-                <button class="filter-btn" data-filter="completed">
-                    <i class="fas fa-check-circle"></i> Completed
-                </button>
-            </div>
-            <div class="view-controls">
-                <button class="view-btn active" data-view="grid">
-                    <i class="fas fa-th-large"></i> Grid View
-                </button>
-                <button class="view-btn" data-view="list">
-                    <i class="fas fa-list"></i> List View
-                </button>
-                <button class="action-btn reminders-btn" id="show-reminders">
-                    <i class="fas fa-bell"></i> View Reminders
-                </button>
-                <button class="action-btn save-btn" id="save-progress">
-                    <i class="fas fa-save"></i> Save Progress
-                </button>
-                <button class="action-btn pdf-btn" id="generate-pdf">
-                    <i class="fas fa-file-pdf"></i> Export PDF
-                </button>
-                <button class="action-btn reset-btn" id="reset-progress">
-                    <i class="fas fa-redo"></i> Reset All
-                </button>
-            </div>
-        </div>
-
-        <button class="add-objective-btn" id="add-objective">
-            <i class="fas fa-plus"></i> Add New Objective
-        </button>
-        
-        <div class="objectives-container grid-view" id="objectives-container">
-            <!-- Objective cards will be dynamically inserted here -->
-        </div>
-        
-        <div class="footer">
-            <p>Mid-Year Objectives Dashboard • Last updated: <span id="current-date"></span></p>
-            <p>Click the edit icon (<i class="fas fa-edit" style="color: var(--secondary-color);"></i>) to edit objective titles and status, note icon (<i class="fas fa-sticky-note"></i>) to add dated notes, paperclip icon (<i class="fas fa-paperclip"></i>) to attach evidence files, edit icon (<i class="fas fa-edit"></i>) to edit tasks, and trash icon (<i class="fas fa-trash"></i>) to delete tasks.</p>
-        </div>
-        
-        <div class="notification" id="notification">
-            <i class="fas fa-check-circle"></i>
-            <span id="notification-text">Progress saved successfully!</span>
-        </div>
-        
-        <div class="reminder-notification" id="reminder-notification">
-            <h4><i class="fas fa-bell"></i> Task Reminders</h4>
-            <div id="reminder-content">
-                <!-- Reminders will be inserted here -->
-            </div>
-            <div style="text-align: right; margin-top: 15px;">
-                <button id="dismiss-reminders" style="padding: 5px 15px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 4px; cursor: pointer;">Dismiss</button>
-            </div>
-        </div>
-        
-        <!-- PDF Generation Progress Modal -->
-        <div class="pdf-progress hidden" id="pdf-progress">
-            <div class="spinner"></div>
-            <div class="progress-text">Generating PDF report...</div>
-            <div id="pdf-progress-details" style="font-size: 0.9rem; margin-top: 10px; text-align: center; max-width: 300px;">
-                Please wait while we prepare your report. This may take a moment.
-            </div>
-        </div>
-        
-        <!-- Calendar Modal -->
-        <div class="calendar-modal" id="calendar-modal" style="display: none;">
-            <div class="calendar-header">
-                <div class="calendar-nav">
-                    <button id="calendar-prev"><i class="fas fa-chevron-left"></i></button>
-                    <button id="calendar-next"><i class="fas fa-chevron-right"></i></button>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" required placeholder="Create a password (min. 6 characters)">
                 </div>
-                <div class="calendar-month-year" id="calendar-month-year">June 2024</div>
-                <button id="calendar-close" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">×</button>
-            </div>
-            <div class="calendar-weekdays">
-                <div>Sun</div>
-                <div>Mon</div>
-                <div>Tue</div>
-                <div>Wed</div>
-                <div>Thu</div>
-                <div>Fri</div>
-                <div>Sat</div>
-            </div>
-            <div class="calendar-days" id="calendar-days">
-                <!-- Calendar days will be dynamically inserted here -->
-            </div>
-            <div class="calendar-footer">
-                <div id="selected-date-display"></div>
-                <button id="calendar-select-btn" style="padding: 8px 15px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Select</button>
-            </div>
-        </div>
-        
-        <!-- PDF Settings Modal -->
-        <div class="modal-overlay" id="pdf-modal">
-            <div class="modal">
-                <h3><i class="fas fa-file-pdf"></i> Export Dashboard as PDF</h3>
-                <p>Configure your PDF export settings:</p>
-                
-                <div style="margin: 20px 0;">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Document Title:</label>
-                        <input type="text" id="pdf-title" value="Mid-Year Objectives Progress Report" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px;">
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Notes:</label>
-                        <div>
-                            <input type="radio" id="notes-yes" name="include-notes" value="yes" checked>
-                            <label for="notes-yes" style="margin-right: 15px;">Yes, include all notes</label>
-                            <input type="radio" id="notes-no" name="include-notes" value="no">
-                            <label for="notes-no">No, exclude notes</label>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Attachments List:</label>
-                        <div>
-                            <input type="radio" id="attachments-yes" name="include-attachments" value="yes" checked>
-                            <label for="attachments-yes" style="margin-right: 15px;">Yes, include attachments list</label>
-                            <input type="radio" id="attachments-no" name="include-attachments" value="no">
-                            <label for="attachments-no">No, exclude attachments</label>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Page Orientation:</label>
-                        <div>
-                            <input type="radio" id="orientation-portrait" name="orientation" value="portrait" checked>
-                            <label for="orientation-portrait" style="margin-right: 15px;">Portrait</label>
-                            <input type="radio" id="orientation-landscape" name="orientation" value="landscape">
-                            <label for="orientation-landscape">Landscape</label>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Page Size:</label>
-                        <div>
-                            <select id="page-size" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px;">
-                                <option value="a4">A4 (210mm × 297mm)</option>
-                                <option value="letter">Letter (8.5in × 11in)</option>
-                                <option value="legal">Legal (8.5in × 14in)</option>
-                                <option value="a3">A3 (297mm × 420mm)</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Date Range:</label>
-                        <div>
-                            <input type="radio" id="date-range-yes" name="include-date-range" value="yes" checked>
-                            <label for="date-range-yes" style="margin-right: 15px;">Yes, include review period</label>
-                            <input type="radio" id="date-range-no" name="include-date-range" value="no">
-                            <label for="date-range-no">No, exclude date range</label>
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label for="signup-confirm-password">Confirm Password</label>
+                    <input type="password" id="signup-confirm-password" required placeholder="Confirm your password">
                 </div>
                 
-                <div class="modal-buttons">
-                    <button class="modal-btn secondary" id="cancel-pdf">Cancel</button>
-                    <button class="modal-btn primary" id="generate-pdf-now">Generate PDF</button>
+                <!-- Secret Question Section -->
+                <div class="form-group">
+                    <label for="signup-secret-question">Security Question</label>
+                    <select id="signup-secret-question" required>
+                        <option value="">Select a security question</option>
+                        <option value="What was your first pet's name?">What was your first pet's name?</option>
+                        <option value="What city were you born in?">What city were you born in?</option>
+                        <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                        <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+                        <option value="What is the name of your favorite teacher?">What is the name of your favorite teacher?</option>
+                        <option value="What is your favorite movie?">What is your favorite movie?</option>
+                        <option value="What was the make of your first car?">What was the make of your first car?</option>
+                        <option value="What is the name of your favorite childhood friend?">What is the name of your favorite childhood friend?</option>
+                        <option value="custom">Enter my own question</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="custom-question-group" style="display: none;">
+                    <label for="signup-custom-question">Your Security Question</label>
+                    <input type="text" id="signup-custom-question" placeholder="Enter your security question">
+                </div>
+                
+                <div class="form-group">
+                    <label for="signup-secret-answer">Security Answer</label>
+                    <input type="text" id="signup-secret-answer" required placeholder="Enter answer to security question">
+                    <small style="color: #7f8c8d; display: block; margin-top: 5px;">This will be used to reset your password if forgotten</small>
+                </div>
+                
+                <button type="button" class="auth-btn" onclick="signup()">Create Account</button>
+                <div class="auth-links">
+                    <p>Already have an account? <a onclick="switchAuthTab('login')">Login here</a></p>
                 </div>
             </div>
-        </div>
-        
-        <!-- Reminders Modal -->
-        <div class="modal-overlay" id="reminders-modal">
-            <div class="modal">
-                <h3><i class="fas fa-bell"></i> Task Reminders</h3>
-                <div id="reminders-list-container">
-                    <!-- Reminders list will be inserted here -->
+            
+            <!-- Forgot Password Form -->
+            <div id="forgot-form" class="auth-form">
+                <div class="form-group">
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" required placeholder="Enter your email">
                 </div>
-                <div class="modal-buttons">
-                    <button class="modal-btn secondary" id="close-reminders">Close</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- File Preview Modal -->
-        <div class="modal-overlay" id="file-preview-modal">
-            <div class="modal file-preview-modal">
-                <h3><i class="fas fa-file"></i> File Preview</h3>
-                <div id="file-preview-container">
-                    <!-- File preview will be inserted here -->
-                </div>
-                <div class="modal-buttons">
-                    <button class="modal-btn secondary" id="close-file-preview">Close</button>
-                    <a id="download-file-btn" class="modal-btn primary" download>
-                        <i class="fas fa-download"></i> Download
-                    </a>
+                <button type="button" class="auth-btn" onclick="verifyEmail()">Verify Email</button>
+                <div class="auth-links">
+                    <p>Remember your password? <a onclick="switchAuthTab('login')">Back to login</a></p>
                 </div>
             </div>
-        </div>
-
-        <!-- Delete Objective Confirmation Modal -->
-        <div class="modal-overlay" id="delete-objective-modal">
-            <div class="modal">
-                <h3><i class="fas fa-exclamation-triangle" style="color: var(--danger-color);"></i> Delete Objective</h3>
-                <p id="delete-objective-text">Are you sure you want to delete this objective? This action cannot be undone and will delete all associated tasks, notes, and attachments.</p>
-                <div class="modal-buttons">
-                    <button class="modal-btn secondary" id="cancel-delete-objective">Cancel</button>
-                    <button class="modal-btn primary" id="confirm-delete-objective" style="background-color: var(--danger-color);">Delete Objective</button>
+            
+            <!-- Reset Password Form (hidden initially) -->
+            <div id="reset-form" class="auth-form">
+                <div class="form-group">
+                    <label id="secret-question-display">Security Question</label>
+                    <input type="text" id="reset-secret-answer" required placeholder="Enter your answer">
+                </div>
+                <div class="form-group">
+                    <label for="reset-new-password">New Password</label>
+                    <input type="password" id="reset-new-password" required placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label for="reset-confirm-password">Confirm New Password</label>
+                    <input type="password" id="reset-confirm-password" required placeholder="Confirm new password">
+                </div>
+                <button type="button" class="auth-btn" onclick="resetPassword()">Reset Password</button>
+                <div class="auth-links">
+                    <p><a onclick="switchAuthTab('login')">Back to login</a></p>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- Dashboard Container (hidden by default) -->
+    <div id="dashboard-container" class="dashboard-container">
+        <div class="container">
+            <header>
+                <div class="header-left">
+                    <div class="nca-logo-header">
+                        <div class="top-line">NATIONAL COMMUNICATIONS</div>
+                        <div class="middle-line">NCA</div>
+                        <div class="bottom-line">AUTHORITY</div>
+                    </div>
+                    
+                    <h1><i class="fas fa-chart-line"></i> Performance Appraisal Progress Dashboard</h1>
+                    <p class="subtitle">Track your performance objectives, key action points, and KPIs to stay on target</p>
+                    <div class="date-info">
+                        <div class="date-info-text">
+                            <i class="far fa-calendar-alt"></i>
+                            <span id="period-display">Mid-Year Review Period (June 2024 - July 2024)</span>
+                            <span id="edit-period-btn" style="margin-left: 10px; font-size: 0.9rem;">
+                                <i class="fas fa-edit"></i> Edit
+                            </span>
+                        </div>
+                        <div class="date-range-inputs" id="date-range-inputs">
+                            <input type="text" id="period-start" placeholder="Start Date (MM/YYYY)" class="calendar-input">
+                            <i class="far fa-calendar calendar-icon" id="calendar-start-icon"></i>
+                            <span>to</span>
+                            <input type="text" id="period-end" placeholder="End Date (MM/YYYY)" class="calendar-input">
+                            <i class="far fa-calendar calendar-icon" id="calendar-end-icon"></i>
+                            <button id="save-period-btn">Save</button>
+                            <button class="cancel-btn" id="cancel-period-btn">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="preset-periods" id="preset-periods">
+                        <button class="preset-btn" data-period="q1">Q1 (Jan-Mar)</button>
+                        <button class="preset-btn" data-period="q2">Q2 (Apr-Jun)</button>
+                        <button class="preset-btn" data-period="q3">Q3 (Jul-Sep)</button>
+                        <button class="preset-btn" data-period="q4">Q4 (Oct-Dec)</button>
+                        <button class="preset-btn" data-period="h1">H1 (Jan-Jun)</button>
+                        <button class="preset-btn" data-period="h2">H2 (Jul-Dec)</button>
+                        <button class="preset-btn" data-period="midyear">Mid-Year (Jun-Jul)</button>
+                        <button class="preset-btn" data-period="yearend">Year-End (Nov-Dec)</button>
+                    </div>
+                    
+                    <!-- Admin Controls (only visible to admin) -->
+                    <div class="admin-controls" id="admin-controls" style="display: none;">
+                        <h4 style="color: white; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-shield-alt"></i> Administrator Controls
+                        </h4>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="admin-btn warning" id="clear-all-profiles">
+                                <i class="fas fa-trash"></i> Clear All Profiles
+                            </button>
+                            <button class="admin-btn success" id="reset-all-data">
+                                <i class="fas fa-redo"></i> Reset All User Data
+                            </button>
+                            <button class="admin-btn" id="export-all-data">
+                                <i class="fas fa-download"></i> Export All Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="user-info">
+                    <div class="user-avatar" id="user-avatar">JD</div>
+                    <div>
+                        <div id="user-name">John Doe</div>
+                        <div class="user-menu">
+                            <button class="user-menu-btn" id="user-menu-btn">
+                                <span id="user-email">user@example.com</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="user-dropdown" id="user-dropdown">
+                                <a href="#" class="user-dropdown-item">
+                                    <i class="fas fa-user"></i> My Profile
+                                </a>
+                                <a href="#" class="user-dropdown-item">
+                                    <i class="fas fa-cog"></i> Settings
+                                </a>
+                                <a href="#" class="user-dropdown-item logout" id="logout-btn">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon stat-1">
+                        <i class="fas fa-bullseye"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-objectives">0</h3>
+                        <p>Total Objectives</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-2">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="completed-tasks">0</h3>
+                        <p>Completed Tasks</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-3">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="overall-progress">0%</h3>
+                        <p>Overall Progress</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon stat-4">
+                        <i class="fas fa-paperclip"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-attachments">0</h3>
+                        <p>Total Attachments</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="filter-controls">
+                    <button class="filter-btn active" data-filter="all">
+                        <i class="fas fa-layer-group"></i> All Objectives
+                    </button>
+                    <button class="filter-btn" data-filter="not-started">
+                        <i class="far fa-circle"></i> Not Started
+                    </button>
+                    <button class="filter-btn" data-filter="in-progress">
+                        <i class="fas fa-spinner"></i> In Progress
+                    </button>
+                    <button class="filter-btn" data-filter="completed">
+                        <i class="fas fa-check-circle"></i> Completed
+                    </button>
+                </div>
+                <div class="view-controls">
+                    <button class="view-btn active" data-view="grid">
+                        <i class="fas fa-th-large"></i> Grid View
+                    </button>
+                    <button class="view-btn" data-view="list">
+                        <i class="fas fa-list"></i> List View
+                    </button>
+                    <button class="action-btn reminders-btn" id="show-reminders">
+                        <i class="fas fa-bell"></i> View Reminders
+                    </button>
+                    <button class="action-btn save-btn" id="save-progress">
+                        <i class="fas fa-save"></i> Save Progress
+                    </button>
+                    <button class="action-btn pdf-btn" id="generate-pdf">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </button>
+                    <button class="action-btn reset-btn" id="reset-progress">
+                        <i class="fas fa-redo"></i> Reset All
+                    </button>
+                    <!-- Sign Out Button Added Here -->
+                    <button class="action-btn sign-out-btn" id="sign-out-btn">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                </div>
+            </div>
 
-    <!-- Print Section (hidden until needed) -->
-    <div id="print-section" class="print-section" style="display: none;"></div>
+            <button class="add-objective-btn" id="add-objective">
+                <i class="fas fa-plus"></i> Add New Objective
+            </button>
+            
+            <div class="objectives-container grid-view" id="objectives-container">
+                <!-- Objective cards will be dynamically inserted here -->
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>No objectives yet</h3>
+                    <p>Click "Add New Objective" to get started</p>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Mid-Year Objectives Dashboard • Last updated: <span id="current-date"></span></p>
+                <p>Click the edit icon (<i class="fas fa-edit" style="color: var(--secondary-color);"></i>) to edit objective titles and status, note icon (<i class="fas fa-sticky-note"></i>) to add dated notes, paperclip icon (<i class="fas fa-paperclip"></i>) to attach evidence files, edit icon (<i class="fas fa-edit"></i>) to edit tasks, and trash icon (<i class="fas fa-trash"></i>) to delete tasks.</p>
+            </div>
+            
+            <div class="notification" id="notification">
+                <i class="fas fa-check-circle"></i>
+                <span id="notification-text">Progress saved successfully!</span>
+            </div>
+            
+            <div class="reminder-notification" id="reminder-notification">
+                <h4><i class="fas fa-bell"></i> Task Reminders</h4>
+                <div id="reminder-content">
+                    <!-- Reminders will be inserted here -->
+                </div>
+                <div style="text-align: right; margin-top: 15px;">
+                    <button id="dismiss-reminders" style="padding: 5px 15px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 4px; cursor: pointer;">Dismiss</button>
+                </div>
+            </div>
+            
+            <!-- PDF Generation Progress Modal -->
+            <div class="pdf-progress hidden" id="pdf-progress">
+                <div class="spinner"></div>
+                <div class="progress-text">Generating PDF report...</div>
+                <div id="pdf-progress-details" style="font-size: 0.9rem; margin-top: 10px; text-align: center; max-width: 300px;">
+                    Please wait while we prepare your report. This may take a moment.
+                </div>
+            </div>
+            
+            <!-- Calendar Modal -->
+            <div class="calendar-modal" id="calendar-modal" style="display: none;">
+                <div class="calendar-header">
+                    <div class="calendar-nav">
+                        <button id="calendar-prev"><i class="fas fa-chevron-left"></i></button>
+                        <button id="calendar-next"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="calendar-month-year" id="calendar-month-year">June 2024</div>
+                    <button id="calendar-close" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">×</button>
+                </div>
+                <div class="calendar-weekdays">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                </div>
+                <div class="calendar-days" id="calendar-days">
+                    <!-- Calendar days will be dynamically inserted here -->
+                </div>
+                <div class="calendar-footer">
+                    <div id="selected-date-display"></div>
+                    <button id="calendar-select-btn" style="padding: 8px 15px; background-color: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Select</button>
+                </div>
+            </div>
+            
+            <!-- PDF Settings Modal -->
+            <div class="modal-overlay" id="pdf-modal">
+                <div class="modal">
+                    <h3><i class="fas fa-file-pdf"></i> Export Dashboard as PDF</h3>
+                    <p>Configure your PDF export settings:</p>
+                    
+                    <div style="margin: 20px 0;">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Document Title:</label>
+                            <input type="text" id="pdf-title" value="Mid-Year Objectives Progress Report" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Notes:</label>
+                            <div>
+                                <input type="radio" id="notes-yes" name="include-notes" value="yes" checked>
+                                <label for="notes-yes" style="margin-right: 15px;">Yes, include all notes</label>
+                                <input type="radio" id="notes-no" name="include-notes" value="no">
+                                <label for="notes-no">No, exclude notes</label>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Attachments List:</label>
+                                <div>
+                                <input type="radio" id="attachments-yes" name="include-attachments" value="yes" checked>
+                                <label for="attachments-yes" style="margin-right: 15px;">Yes, include attachments list</label>
+                                <input type="radio" id="attachments-no" name="include-attachments" value="no">
+                                <label for="attachments-no">No, exclude attachments</label>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Page Orientation:</label>
+                            <div>
+                                <input type="radio" id="orientation-portrait" name="orientation" value="portrait" checked>
+                                <label for="orientation-portrait" style="margin-right: 15px;">Portrait</label>
+                                <input type="radio" id="orientation-landscape" name="orientation" value="landscape">
+                                <label for="orientation-landscape">Landscape</label>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Page Size:</label>
+                            <div>
+                                <select id="page-size" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px;">
+                                    <option value="a4">A4 (210mm × 297mm)</option>
+                                    <option value="letter">Letter (8.5in × 11in)</option>
+                                    <option value="legal">Legal (8.5in × 14in)</option>
+                                    <option value="a3">A3 (297mm × 420mm)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Include Date Range:</label>
+                            <div>
+                                <input type="radio" id="date-range-yes" name="include-date-range" value="yes" checked>
+                                <label for="date-range-yes" style="margin-right: 15px;">Yes, include review period</label>
+                                <input type="radio" id="date-range-no" name="include-date-range" value="no">
+                                <label for="date-range-no">No, exclude date range</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="cancel-pdf">Cancel</button>
+                        <button class="modal-btn primary" id="generate-pdf-now">Generate PDF</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Reminders Modal -->
+            <div class="modal-overlay" id="reminders-modal">
+                <div class="modal">
+                    <h3><i class="fas fa-bell"></i> Task Reminders</h3>
+                    <div id="reminders-list-container">
+                        <!-- Reminders list will be inserted here -->
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="close-reminders">Close</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- File Preview Modal -->
+            <div class="modal-overlay" id="file-preview-modal">
+                <div class="modal file-preview-modal">
+                    <h3><i class="fas fa-file"></i> File Preview</h3>
+                    <div id="file-preview-container">
+                        <!-- File preview will be inserted here -->
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="close-file-preview">Close</button>
+                        <a id="download-file-btn" class="modal-btn primary" download>
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Objective Confirmation Modal -->
+            <div class="modal-overlay" id="delete-objective-modal">
+                <div class="modal">
+                    <h3><i class="fas fa-exclamation-triangle" style="color: var(--danger-color);"></i> Delete Objective</h3>
+                    <p id="delete-objective-text">Are you sure you want to delete this objective? This action cannot be undone and will delete all associated tasks, notes, and attachments.</p>
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="cancel-delete-objective">Cancel</button>
+                        <button class="modal-btn primary" id="confirm-delete-objective" style="background-color: var(--danger-color);">Delete Objective</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Confirmation Modal -->
+            <div class="modal-overlay" id="admin-confirm-modal">
+                <div class="modal">
+                    <h3><i class="fas fa-exclamation-triangle" style="color: var(--danger-color);"></i> Administrator Action Required</h3>
+                    <p id="admin-confirm-text">Are you sure you want to perform this action?</p>
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="cancel-admin-action">Cancel</button>
+                        <button class="modal-btn primary" id="confirm-admin-action" style="background-color: var(--danger-color);">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Print Section (hidden until needed) -->
+        <div id="print-section" class="print-section" style="display: none;"></div>
+    </div>
 
     <script>
-        // Simplified data structure with full functionality
-        const objectivesData = [
-            {
-                id: 1,
-                title: "Coordinate \"Tech and Innovations Insight\" to engage stakeholders on the future of technology and innovations in the telecommunications industry.",
-                status: "in-progress",
-                progress: 40,
-                actionPoints: [
-                    {text: "Liaise with Director Corporate Affairs to develop implementation roadmap for the \"NCA Tech and Innovation Insight\".", completed: false, notes: [], attachments: []},
-                    {text: "Develop a quarterly schedule indicating the theme and proposed participants.", completed: false, notes: [], attachments: []},
-                    {text: "Draft letters to participants inviting them to partake in the quarterly stakeholder engagement.", completed: true, notes: [], attachments: []},
-                    {text: "Produce a report on stakeholder engagement.", completed: false, notes: [], attachments: []},
-                    {text: "Develop a dashboard for data collection on emerging technological trends.", completed: false, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "Develop a comprehensive roadmap for implementation", completed: false, notes: [], attachments: []},
-                    {text: "A quarterly schedule of events including proposed participants.", completed: false, notes: [], attachments: []},
-                    {text: "Invitation letters to participants indicating expectations and possible outcomes for the quarterly engagements.", completed: true, notes: [], attachments: []},
-                    {text: "Report on stakeholder engagements and recommend actionable items to improve the industry.", completed: false, notes: [], attachments: []},
-                    {text: "An interactive HTML dashboard on emerging trends.", completed: false, notes: [], attachments: []}
-                ]
-            },
-            {
-                id: 2,
-                title: "Coordinate Activities of Research Units in all Divisions and Organize innovation and strategic foresight workshop.",
-                status: "not-started",
-                progress: 0,
-                actionPoints: [
-                    {text: "Hold meetings with Research Units to discuss Research Topics for the Year.", completed: false, notes: [], attachments: []},
-                    {text: "Propose a schedule for the presentation of research findings.", completed: false, notes: [], attachments: []},
-                    {text: "Coordinate presentation of research findings to Staff and Management.", completed: false, notes: [], attachments: []},
-                    {text: "Organize internal workshop on innovations and strategic foresight.", completed: false, notes: [], attachments: []},
-                    {text: "Develop a dashboard containing research form all divisions.", completed: false, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "Number of Meetings held with Research Units.", completed: false, notes: [], attachments: []},
-                    {text: "Percentage completion of Draft Schedule for presentation of research findings.", completed: false, notes: [], attachments: []},
-                    {text: "Number of presentations done.", completed: false, notes: [], attachments: []},
-                    {text: "Number of workshops organized.", completed: false, notes: [], attachments: []},
-                    {text: "A dashboard of all presentations with recommendations and limitations.", completed: false, notes: [], attachments: []}
-                ]
-            },
-            {
-                id: 3,
-                title: "Evaluate the financial performance of Mobile Network Operators for the period 2021 to 2025.",
-                status: "in-progress",
-                progress: 60,
-                actionPoints: [
-                    {text: "Prepare a report on the financial statement of MTN from 2021 to 2025 to ascertain their financial health.", completed: true, notes: [], attachments: []},
-                    {text: "Prepare a report on the financial statement of Telecel from 2021 to 2025 to ascertain their financial health.", completed: true, notes: [], attachments: []},
-                    {text: "Prepare a report on the financial statement of AT from 2021 to 2025 to ascertain their financial health.", completed: false, notes: [], attachments: []},
-                    {text: "Prepare a report on the financial health of MNOs from the period 2021 to 2025.", completed: false, notes: [], attachments: []},
-                    {text: "Produce a dashboard to display the outcome.", completed: false, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "An analysis of the financial performance of MTN from 2021 to 2025.", completed: true, notes: [], attachments: []},
-                    {text: "An Analysis of the Financial Performance of Telecel from 2021 to 2025.", completed: true, notes: [], attachments: []},
-                    {text: "An Analysis of the Financial Performance of AT from 2021 to 2025.", completed: false, notes: [], attachments: []},
-                    {text: "An Analysis of the Financial health of the MNO industry from 2021 to 2025.", completed: false, notes: [], attachments: []},
-                    {text: "An interactive dashboard to display the findings and outcome.", completed: false, notes: [], attachments: []}
-                ]
-            },
-            {
-                id: 4,
-                title: "Monitor the state of the communications industry to identify trends, issues and the overall industry health and suggest recommendations to guide regulatory practices and policy direction.",
-                status: "not-started",
-                progress: 0,
-                actionPoints: [
-                    {text: "Evaluate the financial performance of Service Markets for the period 2021 to 2025.", completed: false, notes: [], attachments: []},
-                    {text: "Prepare a report on the financial statement of assigned markets for the period 2021 to 2025 to ascertain their financial health.", completed: false, notes: [], attachments: []},
-                    {text: "Collate and analyze financial statements of service providers.", completed: false, notes: [], attachments: []},
-                    {text: "Make recommendations based on financial health to inform regulatory practices.", completed: false, notes: [], attachments: []},
-                    {text: "Internal/external stakeholder engagement or workshop to address key finding and recommendations.", completed: false, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "An analysis of the Financial performance of Service Providers for the period 2021 - 2025.", completed: false, notes: [], attachments: []},
-                    {text: "A report with recommendations on financial health of the service market.", completed: false, notes: [], attachments: []},
-                    {text: "A competitive landscape dashboard or report summarizing market share trends and service quality indicators.", completed: false, notes: [], attachments: []},
-                    {text: "A consolidated industry health report integrating financial, competitive, and operational data.", completed: false, notes: [], attachments: []},
-                    {text: "Stakeholder engagement.", completed: false, notes: [], attachments: []}
-                ]
-            },
-            {
-                id: 5,
-                title: "Identify new business growth opportunities and advice on strategies for improving performance and revenue.",
-                status: "completed",
-                progress: 100,
-                actionPoints: [
-                    {text: "Assist with the Implementation of the Guideline on the computation of 1% regulatory fee for Revenue Assurance.", completed: true, notes: [], attachments: []},
-                    {text: "Identify delayed payments of licensees and issue demand notices.", completed: true, notes: [], attachments: []},
-                    {text: "Liaise with the finance Division on payments received from licensees.", completed: true, notes: [], attachments: []},
-                    {text: "Reconcile payments received with Invoiced sums for revenue assurance.", completed: true, notes: [], attachments: []},
-                    {text: "Assist with the resolution of inconsistencies in computing annual regulatory fees in accordance with the gazetted guidelines.", completed: true, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "Drafted demand notices to licensees.", completed: true, notes: [], attachments: []},
-                    {text: "A report on confirmed payments made by licensees.", completed: true, notes: [], attachments: []},
-                    {text: "A reconciled report on payments received and what was due.", completed: true, notes: [], attachments: []},
-                    {text: "Produce a dashboard indicating payments received and invoiced sums.", completed: true, notes: [], attachments: []},
-                    {text: "Report on meetings to resolve inconsistencies arising from the application of the guidelines for computation of regulatory fees.", completed: true, notes: [], attachments: []}
-                ]
-            },
-            {
-                id: 6,
-                title: "Conduct industry research and make recommendations to guide regulatory practices and policy direction.",
-                status: "in-progress",
-                progress: 30,
-                actionPoints: [
-                    {text: "Conduct desktop research on regulating Artificial Intelligence (AI) in Africa.", completed: true, notes: [], attachments: []},
-                    {text: "Benchmark how AI is Regulated in some selected African Countries and lessons Ghana can learn.", completed: false, notes: [], attachments: []},
-                    {text: "Produce report with recommendations to inform policy direction.", completed: false, notes: [], attachments: []},
-                    {text: "Produce report with recommendations to inform policy direction.", completed: false, notes: [], attachments: []},
-                    {text: "Engage with local AI developers, startups, and academia to gather ground-level insights on regulatory needs.", completed: false, notes: [], attachments: []}
-                ],
-                kpis: [
-                    {text: "A research paper with recommendations of regulating AI.", completed: true, notes: [], attachments: []},
-                    {text: "Reference Ghana AI Strategy Policy as the base text for Analysis and recommendation to inform policy direction.", completed: false, notes: [], attachments: []},
-                    {text: "A comparative analysis document of global AI regulations with actionable insights for Ghana.", completed: false, notes: [], attachments: []},
-                    {text: "Presentation of findings to management.", completed: false, notes: [], attachments: []}
-                ]
-            }
-        ];
-
-        // State management
-        let currentFilter = 'all';
-        let currentView = 'grid';
-        let isEditing = false;
-        let remindersShown = false;
-        let objectiveToDelete = null;
+        // =========================
+        // AUTHENTICATION LOGIC
+        // =========================
         
-        // Review period state
+        // Admin credentials
+        const ADMIN_EMAIL = "admin@nca.gov";
+        const ADMIN_PASSWORD = "admin123";
+        
+        // Storage helpers
+        function getUsers() {
+            return JSON.parse(localStorage.getItem("users") || "[]");
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem("users", JSON.stringify(users));
+        }
+
+        // Dashboard data storage
+        function getDashboardData(email) {
+            const data = localStorage.getItem("dashboardData_" + email.toLowerCase());
+            return data ? JSON.parse(data) : null;
+        }
+
+        function saveDashboardData(email, data) {
+            localStorage.setItem("dashboardData_" + email.toLowerCase(), JSON.stringify(data));
+        }
+
+        // Get current user from session storage
+        function getCurrentUser() {
+            return JSON.parse(sessionStorage.getItem("currentUser"));
+        }
+
+        function setCurrentUser(user) {
+            sessionStorage.setItem("currentUser", JSON.stringify(user));
+        }
+
+        // Screen switching
+        function switchAuthTab(tab) {
+            // Update tabs
+            document.querySelectorAll('.auth-tab').forEach(t => {
+                t.classList.remove('active');
+            });
+            
+            // Hide all auth tabs text
+            document.querySelectorAll('.auth-tab').forEach(t => {
+                t.classList.remove('active');
+                if (t.textContent.includes(tab === 'login' ? 'Login' : tab === 'signup' ? 'Sign Up' : 'Reset')) {
+                    // For reset password flow, we don't highlight any tab
+                    if (tab !== 'forgot' && tab !== 'reset') {
+                        t.classList.add('active');
+                    }
+                }
+            });
+            
+            // Update forms
+            document.querySelectorAll('.auth-form').forEach(form => {
+                form.classList.remove('active');
+            });
+            
+            if (tab === 'forgot' || tab === 'reset') {
+                // For password reset flow, show appropriate form but don't highlight tab
+                document.getElementById(`${tab}-form`).classList.add('active');
+            } else {
+                document.getElementById(`${tab}-form`).classList.add('active');
+            }
+            
+            // Clear any error messages
+            document.getElementById('auth-error').style.display = 'none';
+            document.getElementById('auth-success').style.display = 'none';
+        }
+
+        // Handle custom secret question
+        document.getElementById('signup-secret-question').addEventListener('change', function() {
+            const customQuestionGroup = document.getElementById('custom-question-group');
+            if (this.value === 'custom') {
+                customQuestionGroup.style.display = 'block';
+                document.getElementById('signup-custom-question').required = true;
+            } else {
+                customQuestionGroup.style.display = 'none';
+                document.getElementById('signup-custom-question').required = false;
+            }
+        });
+
+        function showAuthError(message) {
+            const errorElement = document.getElementById('auth-error');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function showAuthSuccess(message) {
+            const successElement = document.getElementById('auth-success');
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 5000);
+        }
+
+        // Sign up logic
+        function signup() {
+            const name = document.getElementById('signup-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim().toLowerCase();
+            const pass = document.getElementById('signup-password').value;
+            const confirm = document.getElementById('signup-confirm-password').value;
+            const secretQuestion = document.getElementById('signup-secret-question').value;
+            let finalSecretQuestion = secretQuestion;
+            const secretAnswer = document.getElementById('signup-secret-answer').value.trim();
+
+            if (!name || !email || !pass || !confirm || !secretQuestion || !secretAnswer) {
+                return showAuthError("All fields are required");
+            }
+
+            if (pass !== confirm) {
+                return showAuthError("Passwords do not match");
+            }
+
+            if (pass.length < 6) {
+                return showAuthError("Password must be at least 6 characters");
+            }
+
+            // Handle custom question
+            if (secretQuestion === 'custom') {
+                const customQuestion = document.getElementById('signup-custom-question').value.trim();
+                if (!customQuestion) {
+                    return showAuthError("Please enter your custom security question");
+                }
+                finalSecretQuestion = customQuestion;
+            }
+
+            const users = getUsers();
+            if (users.find(u => u.email.toLowerCase() === email)) {
+                return showAuthError("Email already exists");
+            }
+
+            // Store user with secret question and answer
+            users.push({ 
+                name, 
+                email: email, // Store in lowercase
+                pass,
+                secretQuestion: finalSecretQuestion,
+                secretAnswer: secretAnswer.toLowerCase() // Store in lowercase for case-insensitive comparison
+            });
+            saveUsers(users);
+
+            // Create initial dashboard data for new user - EMPTY SLATE
+            const initialData = {
+                objectivesData: [], // Empty array - no objectives
+                reviewPeriod: {
+                    start: 'June 2024',
+                    end: 'July 2024',
+                    display: 'Mid-Year Review Period (June 2024 - July 2024)'
+                },
+                lastUpdated: new Date().toISOString()
+            };
+            
+            saveDashboardData(email, initialData);
+            showAuthSuccess("Account created successfully! Please login.");
+            switchAuthTab('login');
+        }
+
+        // Login logic
+        function login() {
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const pass = document.getElementById('login-password').value;
+
+            // Check if admin login (admin email is case-sensitive for security)
+            if (email === ADMIN_EMAIL.toLowerCase() && pass === ADMIN_PASSWORD) {
+                // Admin login
+                const adminUser = {
+                    name: "Administrator",
+                    email: ADMIN_EMAIL,
+                    isAdmin: true
+                };
+                
+                setCurrentUser(adminUser);
+                
+                // Update user UI
+                document.getElementById('user-name').textContent = adminUser.name;
+                document.getElementById('user-email').textContent = adminUser.email;
+                
+                // Update avatar with initials
+                document.getElementById('user-avatar').textContent = "AD";
+                
+                // Show dashboard
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('dashboard-container').style.display = 'block';
+                
+                // Show admin controls
+                document.getElementById('admin-controls').style.display = 'block';
+                
+                // Initialize dashboard with admin view
+                initializeDashboard(null);
+                
+                // Add admin event listeners
+                setupAdminEventListeners();
+                
+                return;
+            }
+
+            // Regular user login - case insensitive email comparison
+            const users = getUsers();
+            const user = users.find(u => u.email.toLowerCase() === email && u.pass === pass);
+            if (!user) {
+                return showAuthError("Invalid login credentials");
+            }
+
+            // Set current user
+            setCurrentUser(user);
+            
+            // Load dashboard data
+            const dashboardData = getDashboardData(email);
+            
+            // Initialize dashboard
+            initializeDashboard(dashboardData);
+            
+            // Update user UI
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-email').textContent = user.email;
+            
+            // Update avatar with initials
+            const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+            document.getElementById('user-avatar').textContent = initials.substring(0, 2);
+            
+            // Hide admin controls for regular users
+            document.getElementById('admin-controls').style.display = 'none';
+            
+            // Show dashboard
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('dashboard-container').style.display = 'block';
+        }
+
+        // Forgot password - verify email
+        function verifyEmail() {
+            const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+            
+            if (!email) {
+                return showAuthError("Please enter your email address");
+            }
+            
+            const users = getUsers();
+            const user = users.find(u => u.email.toLowerCase() === email);
+            
+            if (!user) {
+                return showAuthError("No account found with this email address");
+            }
+            
+            // Store the email being reset in session storage
+            sessionStorage.setItem("resetEmail", email);
+            
+            // Show the security question
+            document.getElementById('secret-question-display').textContent = user.secretQuestion;
+            
+            // Switch to reset form
+            switchAuthTab('reset');
+        }
+
+        // Reset password
+        function resetPassword() {
+            const email = sessionStorage.getItem("resetEmail");
+            const secretAnswer = document.getElementById('reset-secret-answer').value.trim().toLowerCase();
+            const newPassword = document.getElementById('reset-new-password').value;
+            const confirmPassword = document.getElementById('reset-confirm-password').value;
+            
+            if (!secretAnswer || !newPassword || !confirmPassword) {
+                return showAuthError("All fields are required");
+            }
+            
+            if (newPassword !== confirmPassword) {
+                return showAuthError("Passwords do not match");
+            }
+            
+            if (newPassword.length < 6) {
+                return showAuthError("Password must be at least 6 characters");
+            }
+            
+            const users = getUsers();
+            const userIndex = users.findIndex(u => u.email.toLowerCase() === email);
+            
+            if (userIndex === -1) {
+                return showAuthError("User not found");
+            }
+            
+            // Verify secret answer (case-insensitive)
+            if (users[userIndex].secretAnswer !== secretAnswer.toLowerCase()) {
+                return showAuthError("Incorrect security answer");
+            }
+            
+            // Update password
+            users[userIndex].pass = newPassword;
+            saveUsers(users);
+            
+            // Clear reset email from session storage
+            sessionStorage.removeItem("resetEmail");
+            
+            // Show success message and switch back to login
+            showAuthSuccess("Password reset successfully! Please login with your new password.");
+            
+            // Clear forms
+            document.getElementById('forgot-email').value = '';
+            document.getElementById('reset-secret-answer').value = '';
+            document.getElementById('reset-new-password').value = '';
+            document.getElementById('reset-confirm-password').value = '';
+            
+            switchAuthTab('login');
+        }
+
+        // Sign Out Function
+        function signOut() {
+            // Clear session storage
+            sessionStorage.removeItem("currentUser");
+            sessionStorage.removeItem("resetEmail");
+            
+            // Hide dashboard
+            document.getElementById('dashboard-container').style.display = 'none';
+            
+            // Show login screen
+            document.getElementById('auth-container').style.display = 'flex';
+            
+            // Switch to login tab
+            switchAuthTab('login');
+            
+            // Clear login form
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-password').value = '';
+            
+            // Show success message
+            showAuthSuccess("You have been signed out successfully");
+        }
+
+        // =========================
+        // ADMIN FUNCTIONS
+        // =========================
+        
+        let pendingAdminAction = null;
+        
+        function setupAdminEventListeners() {
+            // Clear All Profiles button
+            document.getElementById('clear-all-profiles').addEventListener('click', function() {
+                pendingAdminAction = 'clearProfiles';
+                document.getElementById('admin-confirm-text').textContent = 
+                    "Are you sure you want to clear ALL user profiles? This will delete all user accounts and their data. This action cannot be undone!";
+                document.getElementById('admin-confirm-modal').classList.add('show');
+            });
+            
+            // Reset All Data button
+            document.getElementById('reset-all-data').addEventListener('click', function() {
+                pendingAdminAction = 'resetData';
+                document.getElementById('admin-confirm-text').textContent = 
+                    "Are you sure you want to reset ALL user data? This will clear all objectives, tasks, notes, and attachments for all users, but keep the user accounts. This action cannot be undone!";
+                document.getElementById('admin-confirm-modal').classList.add('show');
+            });
+            
+            // Export All Data button
+            document.getElementById('export-all-data').addEventListener('click', function() {
+                exportAllData();
+            });
+            
+            // Admin confirmation modal
+            document.getElementById('cancel-admin-action').addEventListener('click', function() {
+                document.getElementById('admin-confirm-modal').classList.remove('show');
+                pendingAdminAction = null;
+            });
+            
+            document.getElementById('confirm-admin-action').addEventListener('click', function() {
+                if (pendingAdminAction === 'clearProfiles') {
+                    clearAllProfiles();
+                } else if (pendingAdminAction === 'resetData') {
+                    resetAllUserData();
+                }
+                document.getElementById('admin-confirm-modal').classList.remove('show');
+                pendingAdminAction = null;
+            });
+        }
+        
+        function clearAllProfiles() {
+            // Clear all user data from localStorage
+            localStorage.clear();
+            
+            // Reinitialize with empty users array
+            localStorage.setItem("users", JSON.stringify([]));
+            
+            // Show success notification
+            showNotification('All user profiles and data have been cleared successfully.');
+            
+            // If admin is currently logged in, refresh their view
+            const user = getCurrentUser();
+            if (user && user.email === ADMIN_EMAIL) {
+                initializeDashboard(null);
+            }
+        }
+        
+        function resetAllUserData() {
+            const users = getUsers();
+            
+            // Reset data for each user
+            users.forEach(user => {
+                const emptyData = {
+                    objectivesData: [],
+                    reviewPeriod: {
+                        start: 'June 2024',
+                        end: 'July 2024',
+                        display: 'Mid-Year Review Period (June 2024 - July 2024)'
+                    },
+                    lastUpdated: new Date().toISOString()
+                };
+                saveDashboardData(user.email, emptyData);
+            });
+            
+            // Show success notification
+            showNotification('All user data has been reset successfully.');
+            
+            // If admin is currently logged in, refresh their view
+            const user = getCurrentUser();
+            if (user && user.email === ADMIN_EMAIL) {
+                initializeDashboard(null);
+            }
+        }
+        
+        function exportAllData() {
+            const users = getUsers();
+            const allData = {
+                exportedAt: new Date().toISOString(),
+                totalUsers: users.length,
+                users: []
+            };
+            
+            // Collect data for each user
+            users.forEach(user => {
+                const userData = getDashboardData(user.email);
+                allData.users.push({
+                    name: user.name,
+                    email: user.email,
+                    data: userData
+                });
+            });
+            
+            // Create download link
+            const dataStr = JSON.stringify(allData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `nca_dashboard_export_${new Date().toISOString().slice(0,10)}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            showNotification('All data exported successfully.');
+        }
+
+        // =========================
+        // DASHBOARD LOGIC
+        // =========================
+        
+        let objectivesData = [];
         let reviewPeriod = {
             start: 'June 2024',
             end: 'July 2024',
             display: 'Mid-Year Review Period (June 2024 - July 2024)'
         };
         
+        // Dashboard state management
+        let currentFilter = 'all';
+        let currentView = 'grid';
+        let currentUser = null;
+        
         // Calendar state
         let calendarState = {
             currentMonth: new Date().getMonth(),
             currentYear: new Date().getFullYear(),
             selectedDate: null,
-            inputTarget: null // 'start' or 'end'
+            inputTarget: null
         };
         
         // Month names
@@ -1725,79 +2666,59 @@
             'July', 'August', 'September', 'October', 'November', 'December'
         ];
         
-        // Initialize the dashboard
-        document.addEventListener('DOMContentLoaded', function() {
+        // Initialize dashboard with data
+        function initializeDashboard(dashboardData) {
+            if (dashboardData) {
+                objectivesData = dashboardData.objectivesData || [];
+                reviewPeriod = dashboardData.reviewPeriod || reviewPeriod;
+            } else {
+                // Empty dashboard for new users or admin view
+                objectivesData = [];
+            }
+            
             // Set current date
             const now = new Date();
             const options = { year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
             
-            // Load saved data if exists
-            loadSavedData();
-            
-            // Load review period
-            loadReviewPeriod();
-            
             // Render all objectives
             renderObjectives();
             updateStats();
             
-            // Setup event listeners
-            setupEventListeners();
+            // Setup event listeners for dashboard
+            setupDashboardEventListeners();
             
             // Check for reminders on load
             setTimeout(checkReminders, 1000);
             
             // Initialize calendar
             renderCalendar();
-        });
-        
-        // Load saved data from localStorage
-        function loadSavedData() {
-            const savedData = localStorage.getItem('objectivesDashboardData');
-            if (savedData) {
-                const parsedData = JSON.parse(savedData);
-                // Only update if we have valid data
-                if (parsedData && parsedData.length > 0) {
-                    // Clear existing data and replace with saved data
-                    objectivesData.length = 0;
-                    parsedData.forEach(obj => objectivesData.push(obj));
-                    showNotification('Loaded saved data');
-                }
-            }
+            
+            // Update period display
+            updatePeriodDisplay();
         }
-        
-        // Load review period from localStorage
-        function loadReviewPeriod() {
-            const savedPeriod = localStorage.getItem('reviewPeriod');
-            if (savedPeriod) {
-                const parsedPeriod = JSON.parse(savedPeriod);
-                reviewPeriod = parsedPeriod;
-                updatePeriodDisplay();
-            }
+
+        // Save dashboard data
+        function saveDashboard() {
+            const user = getCurrentUser();
+            if (!user || user.email === ADMIN_EMAIL) return; // Don't save for admin
+            
+            const dashboardData = {
+                objectivesData: objectivesData,
+                reviewPeriod: reviewPeriod,
+                lastUpdated: new Date().toISOString()
+            };
+            
+            saveDashboardData(user.email, dashboardData);
+            showNotification('Progress saved successfully!');
         }
-        
-        // Save review period to localStorage
-        function saveReviewPeriod() {
-            localStorage.setItem('reviewPeriod', JSON.stringify(reviewPeriod));
-        }
-        
+
         // Update period display
         function updatePeriodDisplay() {
             const displayText = `${reviewPeriod.display}`;
             document.getElementById('period-display').textContent = displayText;
         }
-        
-        // Save data to localStorage
-        function saveToLocalStorage() {
-            try {
-                localStorage.setItem('objectivesDashboardData', JSON.stringify(objectivesData));
-                showNotification('Progress saved successfully!');
-            } catch (e) {
-                console.error('Error saving to localStorage:', e);
-            }
-        }
-        
+
         // Show notification
         function showNotification(message) {
             const notification = document.getElementById('notification');
@@ -1810,7 +2731,7 @@
                 notification.classList.remove('show');
             }, 3000);
         }
-        
+
         // Render objectives based on current filter
         function renderObjectives() {
             const container = document.getElementById('objectives-container');
@@ -1826,8 +2747,8 @@
                 container.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-clipboard-list"></i>
-                        <h3>No objectives found</h3>
-                        <p>Try changing your filter criteria to see more objectives</p>
+                        <h3>No objectives yet</h3>
+                        <p>Click "Add New Objective" to get started</p>
                     </div>
                 `;
                 return;
@@ -1841,7 +2762,7 @@
             // Update view
             updateView();
         }
-        
+
         // Create objective card
         function createObjectiveCard(objective) {
             const card = document.createElement('div');
@@ -1941,7 +2862,7 @@
             
             return card;
         }
-        
+
         // Create task HTML
         function createTaskHTML(task, index, type, objectiveId) {
             const hasNotes = task.notes && task.notes.length > 0;
@@ -2046,28 +2967,28 @@
                 </li>
             `;
         }
-        
+
         // Get progress color
         function getProgressColor(percentage) {
             if (percentage >= 80) return '#27ae60';
             if (percentage >= 40) return '#f39c12';
             return '#e74c3c';
         }
-        
+
         // Format date for display
         function formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         }
-        
+
         // Format month and year
         function formatMonthYear(date) {
             const month = monthNames[date.getMonth()];
             const year = date.getFullYear();
             return `${month} ${year}`;
         }
-        
+
         // Parse month and year string
         function parseMonthYear(monthYearStr) {
             const parts = monthYearStr.split(' ');
@@ -2080,7 +3001,7 @@
             
             return new Date(year, month, 1);
         }
-        
+
         // Format file size
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
@@ -2089,7 +3010,7 @@
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
-        
+
         // Update stats
         function updateStats() {
             const totalObjectives = objectivesData.length;
@@ -2118,7 +3039,7 @@
             document.getElementById('overall-progress').textContent = `${overallProgress}%`;
             document.getElementById('total-attachments').textContent = totalAttachments;
         }
-        
+
         // Add new objective
         function addNewObjective() {
             // Generate new ID (highest existing ID + 1)
@@ -2152,8 +3073,8 @@
             // Update stats
             updateStats();
             
-            // Save to localStorage
-            saveToLocalStorage();
+            // Save to storage
+            saveDashboard();
             
             // Show notification
             showNotification('New objective added successfully!');
@@ -2181,7 +3102,7 @@
                 }
             }, 100);
         }
-        
+
         // Update objective status based on progress
         function updateObjectiveStatus(objective) {
             const allTasks = [...objective.actionPoints, ...objective.kpis];
@@ -2199,7 +3120,7 @@
             
             return objective.status;
         }
-        
+
         // Delete an objective
         function deleteObjective(objectiveId) {
             // Find index of objective to delete
@@ -2212,18 +3133,18 @@
                 // Re-render
                 renderObjectives();
                 updateStats();
-                saveToLocalStorage();
+                saveDashboard();
                 
                 showNotification('Objective deleted successfully');
             }
         }
-        
+
         // Update view
         function updateView() {
             const container = document.getElementById('objectives-container');
             container.className = `objectives-container ${currentView}-view`;
         }
-        
+
         // Check reminders
         function checkReminders() {
             const now = new Date();
@@ -2269,16 +3190,13 @@
             
             if (hasReminders) {
                 reminderContent.innerHTML = reminderHTML;
-                if (!remindersShown) {
-                    reminderNotification.classList.add('show');
-                    remindersShown = true;
-                }
+                reminderNotification.classList.add('show');
             } else {
                 reminderContent.innerHTML = '<p>No upcoming reminders.</p>';
                 reminderNotification.classList.remove('show');
             }
         }
-        
+
         // Show reminders modal
         function showRemindersModal() {
             const modal = document.getElementById('reminders-modal');
@@ -2329,9 +3247,9 @@
             container.innerHTML = remindersHTML;
             modal.classList.add('show');
         }
-        
-        // Setup all event listeners
-        function setupEventListeners() {
+
+        // Setup dashboard event listeners
+        function setupDashboardEventListeners() {
             // Filter buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -2353,7 +3271,7 @@
             });
             
             // Save progress button
-            document.getElementById('save-progress').addEventListener('click', saveToLocalStorage);
+            document.getElementById('save-progress').addEventListener('click', saveDashboard);
             
             // Add new objective button
             document.getElementById('add-objective').addEventListener('click', addNewObjective);
@@ -2493,688 +3411,156 @@
             // Reset button
             document.getElementById('reset-progress').addEventListener('click', function() {
                 if (confirm('Are you sure you want to reset all progress? This will also delete all attachments and notes.')) {
-                    // Reset to original data
-                    objectivesData.forEach(objective => {
-                        objective.actionPoints.forEach(ap => {
-                            ap.completed = false;
-                            ap.notes = [];
-                            ap.attachments = [];
-                        });
-                        objective.kpis.forEach(kpi => {
-                            kpi.completed = false;
-                            kpi.notes = [];
-                            kpi.attachments = [];
-                        });
-                        
-                        // Set progress based on completed tasks
-                        const allTasks = [...objective.actionPoints, ...objective.kpis];
-                        const completedTasks = allTasks.filter(task => task.completed).length;
-                        objective.progress = allTasks.length > 0 ? Math.round((completedTasks / allTasks.length) * 100) : 0;
-                        objective.status = updateObjectiveStatus(objective);
-                    });
+                    // Reset to empty state
+                    objectivesData = [];
                     
                     renderObjectives();
                     updateStats();
-                    saveToLocalStorage();
+                    saveDashboard();
                     showNotification('All progress has been reset');
                 }
             });
             
+            // User menu
+            document.getElementById('user-menu-btn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('user-dropdown').classList.toggle('show');
+            });
+            
+            // Logout button in dropdown
+            document.getElementById('logout-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                signOut();
+            });
+            
+            // Sign Out Button (in controls section)
+            document.getElementById('sign-out-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                signOut();
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.user-menu')) {
+                    document.getElementById('user-dropdown').classList.remove('show');
+                }
+            });
+            
             // Event delegation for dynamic elements
+            setupDynamicEventListeners();
+        }
+
+        // Setup dynamic event listeners
+        function setupDynamicEventListeners() {
             document.addEventListener('click', function(e) {
                 // Handle checkbox changes
                 if (e.target.classList.contains('task-checkbox')) {
-                    const objectiveId = parseInt(e.target.getAttribute('data-objective-id'));
-                    const taskIndex = parseInt(e.target.getAttribute('data-task-index'));
-                    const taskType = e.target.getAttribute('data-task-type');
-                    
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
-                        if (taskList[taskIndex]) {
-                            taskList[taskIndex].completed = e.target.checked;
-                            
-                            // Update task styling
-                            const taskItem = e.target.closest('.task-item');
-                            if (taskItem) {
-                                if (e.target.checked) {
-                                    taskItem.classList.add('completed');
-                                } else {
-                                    taskItem.classList.remove('completed');
-                                }
-                            }
-                            
-                            // Update objective progress and status
-                            updateObjectiveStatus(objective);
-                            
-                            // Update the progress bar
-                            const card = e.target.closest('.objective-card');
-                            const progressFill = card.querySelector('.progress-fill');
-                            const progressValue = card.querySelector('.progress-value');
-                            const progressSlider = card.querySelector('.progress-slider');
-                            const progressNumber = card.querySelector('.progress-number');
-                            
-                            if (progressFill) {
-                                progressFill.style.width = `${objective.progress}%`;
-                                progressFill.style.backgroundColor = getProgressColor(objective.progress);
-                            }
-                            if (progressValue) progressValue.textContent = `${objective.progress}%`;
-                            if (progressSlider) progressSlider.value = objective.progress;
-                            if (progressNumber) progressNumber.value = objective.progress;
-                            
-                            // Update status badge
-                            const statusBadge = card.querySelector('.status-badge');
-                            const statusSelect = card.querySelector('.status-select');
-                            if (statusBadge) {
-                                let statusText = '';
-                                let statusClass = '';
-                                switch(objective.status) {
-                                    case 'not-started': 
-                                        statusText = 'Not Started'; 
-                                        statusClass = 'status-not-started';
-                                        break;
-                                    case 'in-progress': 
-                                        statusText = 'In Progress'; 
-                                        statusClass = 'status-in-progress';
-                                        break;
-                                    case 'completed': 
-                                        statusText = 'Completed'; 
-                                        statusClass = 'status-completed';
-                                        break;
-                                }
-                                statusBadge.textContent = statusText;
-                                statusBadge.className = `status-badge ${statusClass}`;
-                            }
-                            if (statusSelect) statusSelect.value = objective.status;
-                            
-                            updateStats();
-                            saveToLocalStorage();
-                        }
-                    }
+                    handleTaskCheckboxChange(e);
                 }
                 
                 // Handle edit task button
                 if (e.target.closest('.edit-task-btn')) {
-                    const taskItem = e.target.closest('.task-item');
-                    const taskText = taskItem.querySelector('.task-text');
-                    const taskInput = taskItem.querySelector('.task-text-input');
-                    
-                    if (taskText && taskInput) {
-                        taskText.style.display = 'none';
-                        taskInput.style.display = 'block';
-                        taskInput.focus();
-                        taskInput.select();
-                        
-                        // Change edit icon to save
-                        const editBtn = e.target.closest('.edit-task-btn');
-                        editBtn.innerHTML = '<i class="fas fa-check"></i>';
-                        editBtn.title = 'Save Task';
-                        editBtn.classList.remove('edit-task-btn');
-                        editBtn.classList.add('save-task-btn');
-                    }
+                    handleEditTask(e);
                 }
                 
                 // Handle save task button
                 if (e.target.closest('.save-task-btn')) {
-                    const taskItem = e.target.closest('.task-item');
-                    const taskText = taskItem.querySelector('.task-text');
-                    const taskInput = taskItem.querySelector('.task-text-input');
-                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
-                    
-                    if (taskText && taskInput && taskInput.value.trim()) {
-                        const objective = objectivesData.find(obj => obj.id === objectiveId);
-                        if (objective) {
-                            // Find which task list and index
-                            const taskListContainer = taskItem.closest('.task-list');
-                            const isAction = taskListContainer.id.startsWith('action-list');
-                            const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
-                            
-                            const taskList = isAction ? objective.actionPoints : objective.kpis;
-                            if (taskList[taskIndex]) {
-                                taskList[taskIndex].text = taskInput.value.trim();
-                                taskText.textContent = taskInput.value.trim();
-                            }
-                        }
-                        
-                        taskText.style.display = 'flex';
-                        taskInput.style.display = 'none';
-                        
-                        // Change save icon back to edit
-                        const saveBtn = e.target.closest('.save-task-btn');
-                        saveBtn.innerHTML = '<i class="fas fa-edit"></i>';
-                        saveBtn.title = 'Edit Task';
-                        saveBtn.classList.remove('save-task-btn');
-                        saveBtn.classList.add('edit-task-btn');
-                        
-                        saveToLocalStorage();
-                        showNotification('Task updated');
-                    }
+                    handleSaveTask(e);
                 }
                 
                 // Handle delete task button
                 if (e.target.closest('.delete-task-btn')) {
-                    const taskItem = e.target.closest('.task-item');
-                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
-                    
-                    if (confirm('Are you sure you want to delete this task?')) {
-                        const objective = objectivesData.find(obj => obj.id === objectiveId);
-                        if (objective) {
-                            const taskListContainer = taskItem.closest('.task-list');
-                            const isAction = taskListContainer.id.startsWith('action-list');
-                            const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
-                            
-                            const taskList = isAction ? objective.actionPoints : objective.kpis;
-                            if (taskList[taskIndex]) {
-                                taskList.splice(taskIndex, 1);
-                                
-                                // Update objective progress and status
-                                updateObjectiveStatus(objective);
-                                
-                                // Re-render the objective
-                                const card = taskItem.closest('.objective-card');
-                                const newCard = createObjectiveCard(objective);
-                                card.parentNode.replaceChild(newCard, card);
-                                
-                                updateStats();
-                                saveToLocalStorage();
-                                showNotification('Task deleted');
-                            }
-                        }
-                    }
+                    handleDeleteTask(e);
                 }
                 
                 // Handle add task button
                 if (e.target.closest('.add-task-btn')) {
-                    const btn = e.target.closest('.add-task-btn');
-                    const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
-                    const taskType = btn.getAttribute('data-type');
-                    
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
-                        const newTask = {
-                            text: `New ${taskType === 'action' ? 'action point' : 'KPI'}`,
-                            completed: false,
-                            notes: [],
-                            attachments: []
-                        };
-                        
-                        taskList.push(newTask);
-                        
-                        // Update objective progress and status
-                        updateObjectiveStatus(objective);
-                        
-                        // Re-render the objective
-                        const card = btn.closest('.objective-card');
-                        const newCard = createObjectiveCard(objective);
-                        card.parentNode.replaceChild(newCard, card);
-                        
-                        updateStats();
-                        saveToLocalStorage();
-                        showNotification('New task added');
-                    }
+                    handleAddTask(e);
                 }
                 
                 // Handle note button
                 if (e.target.closest('.note-btn')) {
-                    const btn = e.target.closest('.note-btn');
-                    const taskItem = btn.closest('.task-item');
-                    const notesSection = taskItem.querySelector('.task-notes-section');
-                    const addNoteForm = taskItem.querySelector('.add-note-form');
-                    const addNoteBtn = taskItem.querySelector('.add-note-btn');
-                    
-                    if (notesSection.style.display === 'none' || notesSection.style.display === '') {
-                        notesSection.style.display = 'block';
-                        addNoteForm.style.display = 'none';
-                        addNoteBtn.style.display = 'block';
-                    } else {
-                        notesSection.style.display = 'none';
-                    }
+                    handleNoteButton(e);
                 }
                 
                 // Handle attachment button
                 if (e.target.closest('.attachment-btn')) {
-                    const btn = e.target.closest('.attachment-btn');
-                    const taskItem = btn.closest('.task-item');
-                    const attachmentsSection = taskItem.querySelector('.task-attachments-section');
-                    const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
-                    const addAttachmentBtn = taskItem.querySelector('.add-attachment-btn');
-                    
-                    if (attachmentsSection.style.display === 'none' || attachmentsSection.style.display === '') {
-                        attachmentsSection.style.display = 'block';
-                        addAttachmentForm.style.display = 'none';
-                        addAttachmentBtn.style.display = 'block';
-                    } else {
-                        attachmentsSection.style.display = 'none';
-                    }
+                    handleAttachmentButton(e);
                 }
                 
                 // Handle add note button
                 if (e.target.closest('.add-note-btn')) {
-                    const btn = e.target.closest('.add-note-btn');
-                    const taskItem = btn.closest('.task-item');
-                    const addNoteForm = taskItem.querySelector('.add-note-form');
-                    
-                    btn.style.display = 'none';
-                    addNoteForm.style.display = 'block';
+                    handleAddNoteButton(e);
                 }
                 
                 // Handle add attachment button
                 if (e.target.closest('.add-attachment-btn')) {
-                    const btn = e.target.closest('.add-attachment-btn');
-                    const taskItem = btn.closest('.task-item');
-                    const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
-                    
-                    btn.style.display = 'none';
-                    addAttachmentForm.style.display = 'block';
+                    handleAddAttachmentButton(e);
                 }
                 
                 // Handle save note button
                 if (e.target.closest('.note-form-btn.save')) {
-                    const btn = e.target.closest('.note-form-btn.save');
-                    const taskItem = btn.closest('.task-item');
-                    const noteDateInput = taskItem.querySelector('.note-date-input');
-                    const noteTextInput = taskItem.querySelector('.note-text-input');
-                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
-                    
-                    if (noteDateInput.value && noteTextInput.value.trim()) {
-                        const objective = objectivesData.find(obj => obj.id === objectiveId);
-                        if (objective) {
-                            const taskListContainer = taskItem.closest('.task-list');
-                            const isAction = taskListContainer.id.startsWith('action-list');
-                            const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
-                            
-                            const taskList = isAction ? objective.actionPoints : objective.kpis;
-                            if (taskList[taskIndex]) {
-                                if (!taskList[taskIndex].notes) taskList[taskIndex].notes = [];
-                                taskList[taskIndex].notes.push({
-                                    date: noteDateInput.value,
-                                    text: noteTextInput.value.trim()
-                                });
-                                
-                                // Re-render the task
-                                const taskListElement = taskItem.closest('.task-list');
-                                const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
-                                taskItem.outerHTML = newTaskHTML;
-                                
-                                saveToLocalStorage();
-                                showNotification('Note added');
-                            }
-                        }
-                    }
+                    handleSaveNote(e);
                 }
                 
                 // Handle cancel note button
                 if (e.target.closest('.note-form-btn.cancel')) {
-                    const btn = e.target.closest('.note-form-btn.cancel');
-                    const taskItem = btn.closest('.task-item');
-                    const addNoteForm = taskItem.querySelector('.add-note-form');
-                    const addNoteBtn = taskItem.querySelector('.add-note-btn');
-                    
-                    addNoteForm.style.display = 'none';
-                    addNoteBtn.style.display = 'block';
+                    handleCancelNote(e);
                 }
                 
                 // Handle delete note button
                 if (e.target.closest('.delete-note-btn')) {
-                    const btn = e.target.closest('.delete-note-btn');
-                    const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
-                    const taskIndex = parseInt(btn.getAttribute('data-task-index'));
-                    const taskType = btn.getAttribute('data-task-type');
-                    const noteIndex = parseInt(btn.getAttribute('data-note-index'));
-                    
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
-                        if (taskList[taskIndex] && taskList[taskIndex].notes[noteIndex]) {
-                            taskList[taskIndex].notes.splice(noteIndex, 1);
-                            
-                            // Re-render the task
-                            const taskItem = btn.closest('.task-item');
-                            const taskListElement = taskItem.closest('.task-list');
-                            const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, taskType, objectiveId);
-                            taskItem.outerHTML = newTaskHTML;
-                            
-                            saveToLocalStorage();
-                            showNotification('Note deleted');
-                        }
-                    }
+                    handleDeleteNote(e);
                 }
                 
                 // Handle save attachment button
                 if (e.target.closest('.attachment-form-btn.save')) {
-                    const btn = e.target.closest('.attachment-form-btn.save');
-                    const taskItem = btn.closest('.task-item');
-                    const fileInput = taskItem.querySelector('.attachment-file-input');
-                    const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
-                    
-                    if (fileInput.files.length > 0) {
-                        const uploadProgress = taskItem.querySelector('.upload-progress');
-                        uploadProgress.classList.add('active');
-                        uploadProgress.textContent = `Uploading ${fileInput.files.length} file(s)...`;
-                        
-                        // Process each file
-                        const files = Array.from(fileInput.files);
-                        const processedFiles = [];
-                        
-                        files.forEach((file, index) => {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                processedFiles.push({
-                                    name: file.name,
-                                    size: file.size,
-                                    type: file.type,
-                                    data: e.target.result
-                                });
-                                
-                                // When all files are processed
-                                if (processedFiles.length === files.length) {
-                                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                                    if (objective) {
-                                        const taskListContainer = taskItem.closest('.task-list');
-                                        const isAction = taskListContainer.id.startsWith('action-list');
-                                        const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
-                                        
-                                        const taskList = isAction ? objective.actionPoints : objective.kpis;
-                                        if (taskList[taskIndex]) {
-                                            if (!taskList[taskIndex].attachments) taskList[taskIndex].attachments = [];
-                                            taskList[taskIndex].attachments.push(...processedFiles);
-                                            
-                                            // Re-render the task
-                                            const taskListElement = taskItem.closest('.task-list');
-                                            const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
-                                            taskItem.outerHTML = newTaskHTML;
-                                            
-                                            updateStats();
-                                            saveToLocalStorage();
-                                            showNotification(`${files.length} file(s) uploaded`);
-                                        }
-                                    }
-                                }
-                            };
-                            reader.readAsDataURL(file);
-                        });
-                    }
+                    handleSaveAttachment(e);
                 }
                 
                 // Handle cancel attachment button
                 if (e.target.closest('.attachment-form-btn.cancel')) {
-                    const btn = e.target.closest('.attachment-form-btn.cancel');
-                    const taskItem = btn.closest('.task-item');
-                    const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
-                    const addAttachmentBtn = taskItem.querySelector('.add-attachment-btn');
-                    
-                    addAttachmentForm.style.display = 'none';
-                    addAttachmentBtn.style.display = 'block';
+                    handleCancelAttachment(e);
                 }
                 
                 // Handle delete attachment button
                 if (e.target.closest('.delete-attachment-btn')) {
-                    const btn = e.target.closest('.delete-attachment-btn');
-                    const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
-                    const taskIndex = parseInt(btn.getAttribute('data-task-index'));
-                    const taskType = btn.getAttribute('data-task-type');
-                    const attachmentIndex = parseInt(btn.getAttribute('data-attachment-index'));
-                    
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
-                        if (taskList[taskIndex] && taskList[taskIndex].attachments[attachmentIndex]) {
-                            taskList[taskIndex].attachments.splice(attachmentIndex, 1);
-                            
-                            // Re-render the task
-                            const taskItem = btn.closest('.task-item');
-                            const taskListElement = taskItem.closest('.task-list');
-                            const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, taskType, objectiveId);
-                            taskItem.outerHTML = newTaskHTML;
-                            
-                            updateStats();
-                            saveToLocalStorage();
-                            showNotification('Attachment deleted');
-                        }
-                    }
+                    handleDeleteAttachment(e);
                 }
                 
                 // Handle view attachment button
                 if (e.target.closest('.view-attachment-btn')) {
-                    const btn = e.target.closest('.view-attachment-btn');
-                    const fileData = btn.getAttribute('data-file');
-                    const fileName = btn.getAttribute('data-filename');
-                    
-                    const modal = document.getElementById('file-preview-modal');
-                    const container = document.getElementById('file-preview-container');
-                    const downloadBtn = document.getElementById('download-file-btn');
-                    
-                    container.innerHTML = '';
-                    
-                    // Check file type
-                    if (fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                        // Image file
-                        const img = document.createElement('img');
-                        img.src = fileData;
-                        img.className = 'file-preview';
-                        container.appendChild(img);
-                    } else if (fileName.match(/\.(pdf)$/i)) {
-                        // PDF file
-                        const embed = document.createElement('embed');
-                        embed.src = fileData;
-                        embed.type = 'application/pdf';
-                        embed.className = 'file-preview';
-                        container.appendChild(embed);
-                    } else if (fileName.match(/\.(txt)$/i)) {
-                        // Text file
-                        const textContent = atob(fileData.split(',')[1]);
-                        const pre = document.createElement('pre');
-                        pre.textContent = textContent;
-                        pre.style.whiteSpace = 'pre-wrap';
-                        pre.style.padding = '20px';
-                        container.appendChild(pre);
-                    } else {
-                        // Unsupported file type
-                        container.innerHTML = `
-                            <div class="unsupported-file">
-                                <i class="fas fa-file"></i>
-                                <h4>File Preview Not Available</h4>
-                                <p>Preview is not available for this file type.</p>
-                                <div class="file-info">
-                                    <p>File: ${fileName}</p>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // Set up download
-                    downloadBtn.href = fileData;
-                    downloadBtn.download = fileName;
-                    
-                    modal.classList.add('show');
+                    handleViewAttachment(e);
                 }
                 
                 // Handle progress slider
                 if (e.target.classList.contains('progress-slider')) {
-                    const objectiveId = parseInt(e.target.closest('.objective-card').getAttribute('data-objective-id'));
-                    const progressNumber = e.target.closest('.progress-input-container').querySelector('.progress-number');
-                    const progressFill = e.target.closest('.progress-section').querySelector('.progress-fill');
-                    
-                    progressNumber.value = e.target.value;
-                    progressFill.style.width = `${e.target.value}%`;
-                    progressFill.style.backgroundColor = getProgressColor(parseInt(e.target.value));
-                    
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        objective.progress = parseInt(e.target.value);
-                        objective.status = updateObjectiveStatus(objective);
-                        
-                        // Update status badge
-                        const card = e.target.closest('.objective-card');
-                        const statusBadge = card.querySelector('.status-badge');
-                        const statusSelect = card.querySelector('.status-select');
-                        if (statusBadge) {
-                            let statusText = '';
-                            let statusClass = '';
-                            switch(objective.status) {
-                                case 'not-started': 
-                                    statusText = 'Not Started'; 
-                                    statusClass = 'status-not-started';
-                                    break;
-                                case 'in-progress': 
-                                    statusText = 'In Progress'; 
-                                    statusClass = 'status-in-progress';
-                                    break;
-                                case 'completed': 
-                                    statusText = 'Completed'; 
-                                    statusClass = 'status-completed';
-                                    break;
-                            }
-                            statusBadge.textContent = statusText;
-                            statusBadge.className = `status-badge ${statusClass}`;
-                        }
-                        if (statusSelect) statusSelect.value = objective.status;
-                        
-                        updateStats();
-                        saveToLocalStorage();
-                    }
+                    handleProgressSlider(e);
                 }
                 
                 // Handle progress number input
                 if (e.target.classList.contains('progress-number')) {
-                    const objectiveId = parseInt(e.target.closest('.objective-card').getAttribute('data-objective-id'));
-                    const progressSlider = e.target.closest('.progress-input-container').querySelector('.progress-slider');
-                    const progressFill = e.target.closest('.progress-section').querySelector('.progress-fill');
-                    
-                    let value = parseInt(e.target.value);
-                    if (isNaN(value)) value = 0;
-                    if (value < 0) value = 0;
-                    if (value > 100) value = 100;
-                    
-                    e.target.value = value;
-                    progressSlider.value = value;
-                    progressFill.style.width = `${value}%`;
-                    progressFill.style.backgroundColor = getProgressColor(value);
-                    
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        objective.progress = value;
-                        objective.status = updateObjectiveStatus(objective);
-                        
-                        // Update status badge
-                        const card = e.target.closest('.objective-card');
-                        const statusBadge = card.querySelector('.status-badge');
-                        const statusSelect = card.querySelector('.status-select');
-                        if (statusBadge) {
-                            let statusText = '';
-                            let statusClass = '';
-                            switch(objective.status) {
-                                case 'not-started': 
-                                    statusText = 'Not Started'; 
-                                    statusClass = 'status-not-started';
-                                    break;
-                                case 'in-progress': 
-                                    statusText = 'In Progress'; 
-                                    statusClass = 'status-in-progress';
-                                    break;
-                                case 'completed': 
-                                    statusText = 'Completed'; 
-                                    statusClass = 'status-completed';
-                                    break;
-                            }
-                            statusBadge.textContent = statusText;
-                            statusBadge.className = `status-badge ${statusClass}`;
-                        }
-                        if (statusSelect) statusSelect.value = objective.status;
-                        
-                        updateStats();
-                        saveToLocalStorage();
-                    }
+                    handleProgressNumber(e);
                 }
                 
                 // Handle edit objective button
                 if (e.target.closest('.objective-edit-btn')) {
-                    const card = e.target.closest('.objective-card');
-                    card.classList.add('editing');
-                    
-                    // Focus on the title input
-                    setTimeout(() => {
-                        const titleInput = card.querySelector('.objective-title-input');
-                        if (titleInput) {
-                            titleInput.focus();
-                            titleInput.select();
-                        }
-                    }, 100);
+                    handleEditObjective(e);
                 }
                 
                 // Handle save objective button
                 if (e.target.closest('.objective-save-btn')) {
-                    const card = e.target.closest('.objective-card');
-                    const objectiveId = parseInt(card.getAttribute('data-objective-id'));
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    
-                    if (objective) {
-                        // Get updated title
-                        const titleInput = card.querySelector('.objective-title-input');
-                        if (titleInput && titleInput.value.trim()) {
-                            objective.title = titleInput.value.trim();
-                        }
-                        
-                        // Get updated status
-                        const statusSelect = card.querySelector('.status-select');
-                        if (statusSelect) {
-                            objective.status = statusSelect.value;
-                        }
-                        
-                        // Exit edit mode
-                        card.classList.remove('editing');
-                        
-                        // Update and re-render
-                        updateObjectiveStatus(objective);
-                        renderObjectives();
-                        updateStats();
-                        saveToLocalStorage();
-                        
-                        showNotification('Objective updated successfully');
-                    }
+                    handleSaveObjective(e);
                 }
                 
                 // Handle cancel edit button
                 if (e.target.closest('.objective-cancel-btn')) {
-                    const card = e.target.closest('.objective-card');
-                    card.classList.remove('editing');
+                    handleCancelObjectiveEdit(e);
                 }
                 
                 // Handle delete objective button
                 if (e.target.closest('.objective-delete-btn')) {
-                    const card = e.target.closest('.objective-card');
-                    const objectiveId = parseInt(card.getAttribute('data-objective-id'));
-                    objectiveToDelete = objectiveId;
-                    
-                    // Get objective title for confirmation message
-                    const objective = objectivesData.find(obj => obj.id === objectiveId);
-                    if (objective) {
-                        document.getElementById('delete-objective-text').textContent = 
-                            `Are you sure you want to delete "${objective.title}"? This action cannot be undone and will delete all associated tasks, notes, and attachments.`;
-                    }
-                    
-                    document.getElementById('delete-objective-modal').classList.add('show');
-                }
-                
-                // Calendar day selection
-                if (e.target.classList.contains('calendar-day') && !e.target.classList.contains('other-month')) {
-                    // Remove previous selection
-                    document.querySelectorAll('.calendar-day').forEach(day => {
-                        day.classList.remove('selected');
-                    });
-                    
-                    // Add selection to clicked day
-                    e.target.classList.add('selected');
-                    
-                    // Update selected date
-                    const day = parseInt(e.target.textContent);
-                    const selectedDate = new Date(calendarState.currentYear, calendarState.currentMonth, day);
-                    calendarState.selectedDate = selectedDate;
-                    
-                    // Update display
-                    document.getElementById('selected-date-display').textContent = 
-                        `Selected: ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    handleDeleteObjective(e);
                 }
             });
             
@@ -3195,8 +3581,624 @@
                 }
             });
         }
-        
-        // Show calendar
+
+        // Individual handler functions
+        let objectiveToDelete = null;
+
+        function handleTaskCheckboxChange(e) {
+            const objectiveId = parseInt(e.target.getAttribute('data-objective-id'));
+            const taskIndex = parseInt(e.target.getAttribute('data-task-index'));
+            const taskType = e.target.getAttribute('data-task-type');
+            
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                if (taskList[taskIndex]) {
+                    taskList[taskIndex].completed = e.target.checked;
+                    
+                    // Update task styling
+                    const taskItem = e.target.closest('.task-item');
+                    if (taskItem) {
+                        if (e.target.checked) {
+                            taskItem.classList.add('completed');
+                        } else {
+                            taskItem.classList.remove('completed');
+                        }
+                    }
+                    
+                    // Update objective progress and status
+                    updateObjectiveStatus(objective);
+                    
+                    // Update the progress bar
+                    const card = e.target.closest('.objective-card');
+                    const progressFill = card.querySelector('.progress-fill');
+                    const progressValue = card.querySelector('.progress-value');
+                    const progressSlider = card.querySelector('.progress-slider');
+                    const progressNumber = card.querySelector('.progress-number');
+                    
+                    if (progressFill) {
+                        progressFill.style.width = `${objective.progress}%`;
+                        progressFill.style.backgroundColor = getProgressColor(objective.progress);
+                    }
+                    if (progressValue) progressValue.textContent = `${objective.progress}%`;
+                    if (progressSlider) progressSlider.value = objective.progress;
+                    if (progressNumber) progressNumber.value = objective.progress;
+                    
+                    // Update status badge
+                    const statusBadge = card.querySelector('.status-badge');
+                    const statusSelect = card.querySelector('.status-select');
+                    if (statusBadge) {
+                        let statusText = '';
+                        let statusClass = '';
+                        switch(objective.status) {
+                            case 'not-started': 
+                                statusText = 'Not Started'; 
+                                statusClass = 'status-not-started';
+                                break;
+                            case 'in-progress': 
+                                statusText = 'In Progress'; 
+                                statusClass = 'status-in-progress';
+                                break;
+                            case 'completed': 
+                                statusText = 'Completed'; 
+                                statusClass = 'status-completed';
+                                break;
+                        }
+                        statusBadge.textContent = statusText;
+                        statusBadge.className = `status-badge ${statusClass}`;
+                    }
+                    if (statusSelect) statusSelect.value = objective.status;
+                    
+                    updateStats();
+                    saveDashboard();
+                }
+            }
+        }
+
+        function handleEditTask(e) {
+            const taskItem = e.target.closest('.task-item');
+            const taskText = taskItem.querySelector('.task-text');
+            const taskInput = taskItem.querySelector('.task-text-input');
+            
+            if (taskText && taskInput) {
+                taskText.style.display = 'none';
+                taskInput.style.display = 'block';
+                taskInput.focus();
+                taskInput.select();
+                
+                // Change edit icon to save
+                const editBtn = e.target.closest('.edit-task-btn');
+                editBtn.innerHTML = '<i class="fas fa-check"></i>';
+                editBtn.title = 'Save Task';
+                editBtn.classList.remove('edit-task-btn');
+                editBtn.classList.add('save-task-btn');
+            }
+        }
+
+        function handleSaveTask(e) {
+            const taskItem = e.target.closest('.task-item');
+            const taskText = taskItem.querySelector('.task-text');
+            const taskInput = taskItem.querySelector('.task-text-input');
+            const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+            
+            if (taskText && taskInput && taskInput.value.trim()) {
+                const objective = objectivesData.find(obj => obj.id === objectiveId);
+                if (objective) {
+                    // Find which task list and index
+                    const taskListContainer = taskItem.closest('.task-list');
+                    const isAction = taskListContainer.id.startsWith('action-list');
+                    const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                    
+                    const taskList = isAction ? objective.actionPoints : objective.kpis;
+                    if (taskList[taskIndex]) {
+                        taskList[taskIndex].text = taskInput.value.trim();
+                        taskText.textContent = taskInput.value.trim();
+                    }
+                }
+                
+                taskText.style.display = 'flex';
+                taskInput.style.display = 'none';
+                
+                // Change save icon back to edit
+                const saveBtn = e.target.closest('.save-task-btn');
+                saveBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                saveBtn.title = 'Edit Task';
+                saveBtn.classList.remove('save-task-btn');
+                saveBtn.classList.add('edit-task-btn');
+                
+                saveDashboard();
+                showNotification('Task updated');
+            }
+        }
+
+        function handleDeleteTask(e) {
+            const taskItem = e.target.closest('.task-item');
+            const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+            
+            if (confirm('Are you sure you want to delete this task?')) {
+                const objective = objectivesData.find(obj => obj.id === objectiveId);
+                if (objective) {
+                    const taskListContainer = taskItem.closest('.task-list');
+                    const isAction = taskListContainer.id.startsWith('action-list');
+                    const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                    
+                    const taskList = isAction ? objective.actionPoints : objective.kpis;
+                    if (taskList[taskIndex]) {
+                        taskList.splice(taskIndex, 1);
+                        
+                        // Update objective progress and status
+                        updateObjectiveStatus(objective);
+                        
+                        // Re-render the objective
+                        const card = taskItem.closest('.objective-card');
+                        const newCard = createObjectiveCard(objective);
+                        card.parentNode.replaceChild(newCard, card);
+                        
+                        updateStats();
+                        saveDashboard();
+                        showNotification('Task deleted');
+                    }
+                }
+            }
+        }
+
+        function handleAddTask(e) {
+            const btn = e.target.closest('.add-task-btn');
+            const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+            const taskType = btn.getAttribute('data-type');
+            
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                const newTask = {
+                    text: `New ${taskType === 'action' ? 'action point' : 'KPI'}`,
+                    completed: false,
+                    notes: [],
+                    attachments: []
+                };
+                
+                taskList.push(newTask);
+                
+                // Update objective progress and status
+                updateObjectiveStatus(objective);
+                
+                // Re-render the objective
+                const card = btn.closest('.objective-card');
+                const newCard = createObjectiveCard(objective);
+                card.parentNode.replaceChild(newCard, card);
+                
+                updateStats();
+                saveDashboard();
+                showNotification('New task added');
+            }
+        }
+
+        function handleNoteButton(e) {
+            const btn = e.target.closest('.note-btn');
+            const taskItem = btn.closest('.task-item');
+            const notesSection = taskItem.querySelector('.task-notes-section');
+            const addNoteForm = taskItem.querySelector('.add-note-form');
+            const addNoteBtn = taskItem.querySelector('.add-note-btn');
+            
+            if (notesSection.style.display === 'none' || notesSection.style.display === '') {
+                notesSection.style.display = 'block';
+                addNoteForm.style.display = 'none';
+                addNoteBtn.style.display = 'block';
+            } else {
+                notesSection.style.display = 'none';
+            }
+        }
+
+        function handleAttachmentButton(e) {
+            const btn = e.target.closest('.attachment-btn');
+            const taskItem = btn.closest('.task-item');
+            const attachmentsSection = taskItem.querySelector('.task-attachments-section');
+            const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
+            const addAttachmentBtn = taskItem.querySelector('.add-attachment-btn');
+            
+            if (attachmentsSection.style.display === 'none' || attachmentsSection.style.display === '') {
+                attachmentsSection.style.display = 'block';
+                addAttachmentForm.style.display = 'none';
+                addAttachmentBtn.style.display = 'block';
+            } else {
+                attachmentsSection.style.display = 'none';
+            }
+        }
+
+        function handleAddNoteButton(e) {
+            const btn = e.target.closest('.add-note-btn');
+            const taskItem = btn.closest('.task-item');
+            const addNoteForm = taskItem.querySelector('.add-note-form');
+            
+            btn.style.display = 'none';
+            addNoteForm.style.display = 'block';
+        }
+
+        function handleAddAttachmentButton(e) {
+            const btn = e.target.closest('.add-attachment-btn');
+            const taskItem = btn.closest('.task-item');
+            const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
+            
+            btn.style.display = 'none';
+            addAttachmentForm.style.display = 'block';
+        }
+
+        function handleSaveNote(e) {
+            const btn = e.target.closest('.note-form-btn.save');
+            const taskItem = btn.closest('.task-item');
+            const noteDateInput = taskItem.querySelector('.note-date-input');
+            const noteTextInput = taskItem.querySelector('.note-text-input');
+            const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+            
+            if (noteDateInput.value && noteTextInput.value.trim()) {
+                const objective = objectivesData.find(obj => obj.id === objectiveId);
+                if (objective) {
+                    const taskListContainer = taskItem.closest('.task-list');
+                    const isAction = taskListContainer.id.startsWith('action-list');
+                    const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                    
+                    const taskList = isAction ? objective.actionPoints : objective.kpis;
+                    if (taskList[taskIndex]) {
+                        if (!taskList[taskIndex].notes) taskList[taskIndex].notes = [];
+                        taskList[taskIndex].notes.push({
+                            date: noteDateInput.value,
+                            text: noteTextInput.value.trim()
+                        });
+                        
+                        // Re-render the task
+                        const taskListElement = taskItem.closest('.task-list');
+                        const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
+                        taskItem.outerHTML = newTaskHTML;
+                        
+                        saveDashboard();
+                        showNotification('Note added');
+                    }
+                }
+            }
+        }
+
+        function handleCancelNote(e) {
+            const btn = e.target.closest('.note-form-btn.cancel');
+            const taskItem = btn.closest('.task-item');
+            const addNoteForm = taskItem.querySelector('.add-note-form');
+            const addNoteBtn = taskItem.querySelector('.add-note-btn');
+            
+            addNoteForm.style.display = 'none';
+            addNoteBtn.style.display = 'block';
+        }
+
+        function handleDeleteNote(e) {
+            const btn = e.target.closest('.delete-note-btn');
+            const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+            const taskIndex = parseInt(btn.getAttribute('data-task-index'));
+            const taskType = btn.getAttribute('data-task-type');
+            const noteIndex = parseInt(btn.getAttribute('data-note-index'));
+            
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                if (taskList[taskIndex] && taskList[taskIndex].notes[noteIndex]) {
+                    taskList[taskIndex].notes.splice(noteIndex, 1);
+                    
+                    // Re-render the task
+                    const taskItem = btn.closest('.task-item');
+                    const taskListElement = taskItem.closest('.task-list');
+                    const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, taskType, objectiveId);
+                    taskItem.outerHTML = newTaskHTML;
+                    
+                    saveDashboard();
+                    showNotification('Note deleted');
+                }
+            }
+        }
+
+        function handleSaveAttachment(e) {
+            const btn = e.target.closest('.attachment-form-btn.save');
+            const taskItem = btn.closest('.task-item');
+            const fileInput = taskItem.querySelector('.attachment-file-input');
+            const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
+            
+            if (fileInput.files.length > 0) {
+                const uploadProgress = taskItem.querySelector('.upload-progress');
+                uploadProgress.classList.add('active');
+                uploadProgress.textContent = `Uploading ${fileInput.files.length} file(s)...`;
+                
+                // Process each file
+                const files = Array.from(fileInput.files);
+                const processedFiles = [];
+                
+                files.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        processedFiles.push({
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: e.target.result
+                        });
+                        
+                        // When all files are processed
+                        if (processedFiles.length === files.length) {
+                            const objective = objectivesData.find(obj => obj.id === objectiveId);
+                            if (objective) {
+                                const taskListContainer = taskItem.closest('.task-list');
+                                const isAction = taskListContainer.id.startsWith('action-list');
+                                const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
+                                
+                                const taskList = isAction ? objective.actionPoints : objective.kpis;
+                                if (taskList[taskIndex]) {
+                                    if (!taskList[taskIndex].attachments) taskList[taskIndex].attachments = [];
+                                    taskList[taskIndex].attachments.push(...processedFiles);
+                                    
+                                    // Re-render the task
+                                    const taskListElement = taskItem.closest('.task-list');
+                                    const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
+                                    taskItem.outerHTML = newTaskHTML;
+                                    
+                                    updateStats();
+                                    saveDashboard();
+                                    showNotification(`${files.length} file(s) uploaded`);
+                                }
+                            }
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function handleCancelAttachment(e) {
+            const btn = e.target.closest('.attachment-form-btn.cancel');
+            const taskItem = btn.closest('.task-item');
+            const addAttachmentForm = taskItem.querySelector('.add-attachment-form');
+            const addAttachmentBtn = taskItem.querySelector('.add-attachment-btn');
+            
+            addAttachmentForm.style.display = 'none';
+            addAttachmentBtn.style.display = 'block';
+        }
+
+        function handleDeleteAttachment(e) {
+            const btn = e.target.closest('.delete-attachment-btn');
+            const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+            const taskIndex = parseInt(btn.getAttribute('data-task-index'));
+            const taskType = btn.getAttribute('data-task-type');
+            const attachmentIndex = parseInt(btn.getAttribute('data-attachment-index'));
+            
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                if (taskList[taskIndex] && taskList[taskIndex].attachments[attachmentIndex]) {
+                    taskList[taskIndex].attachments.splice(attachmentIndex, 1);
+                    
+                    // Re-render the task
+                    const taskItem = btn.closest('.task-item');
+                    const taskListElement = taskItem.closest('.task-list');
+                    const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, taskType, objectiveId);
+                    taskItem.outerHTML = newTaskHTML;
+                    
+                    updateStats();
+                    saveDashboard();
+                    showNotification('Attachment deleted');
+                }
+            }
+        }
+
+        function handleViewAttachment(e) {
+            const btn = e.target.closest('.view-attachment-btn');
+            const fileData = btn.getAttribute('data-file');
+            const fileName = btn.getAttribute('data-filename');
+            
+            const modal = document.getElementById('file-preview-modal');
+            const container = document.getElementById('file-preview-container');
+            const downloadBtn = document.getElementById('download-file-btn');
+            
+            container.innerHTML = '';
+            
+            // Check file type
+            if (fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                // Image file
+                const img = document.createElement('img');
+                img.src = fileData;
+                img.className = 'file-preview';
+                container.appendChild(img);
+            } else if (fileName.match(/\.(pdf)$/i)) {
+                // PDF file
+                const embed = document.createElement('embed');
+                embed.src = fileData;
+                embed.type = 'application/pdf';
+                embed.className = 'file-preview';
+                container.appendChild(embed);
+            } else if (fileName.match(/\.(txt)$/i)) {
+                // Text file
+                const textContent = atob(fileData.split(',')[1]);
+                const pre = document.createElement('pre');
+                pre.textContent = textContent;
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.padding = '20px';
+                container.appendChild(pre);
+            } else {
+                // Unsupported file type
+                container.innerHTML = `
+                    <div class="unsupported-file">
+                        <i class="fas fa-file"></i>
+                        <h4>File Preview Not Available</h4>
+                        <p>Preview is not available for this file type.</p>
+                        <div class="file-info">
+                            <p>File: ${fileName}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Set up download
+            downloadBtn.href = fileData;
+            downloadBtn.download = fileName;
+            
+            modal.classList.add('show');
+        }
+
+        function handleProgressSlider(e) {
+            const objectiveId = parseInt(e.target.closest('.objective-card').getAttribute('data-objective-id'));
+            const progressNumber = e.target.closest('.progress-input-container').querySelector('.progress-number');
+            const progressFill = e.target.closest('.progress-section').querySelector('.progress-fill');
+            
+            progressNumber.value = e.target.value;
+            progressFill.style.width = `${e.target.value}%`;
+            progressFill.style.backgroundColor = getProgressColor(parseInt(e.target.value));
+            
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                objective.progress = parseInt(e.target.value);
+                objective.status = updateObjectiveStatus(objective);
+                
+                // Update status badge
+                const card = e.target.closest('.objective-card');
+                const statusBadge = card.querySelector('.status-badge');
+                const statusSelect = card.querySelector('.status-select');
+                if (statusBadge) {
+                    let statusText = '';
+                    let statusClass = '';
+                    switch(objective.status) {
+                        case 'not-started': 
+                            statusText = 'Not Started'; 
+                            statusClass = 'status-not-started';
+                            break;
+                        case 'in-progress': 
+                            statusText = 'In Progress'; 
+                            statusClass = 'status-in-progress';
+                            break;
+                        case 'completed': 
+                            statusText = 'Completed'; 
+                            statusClass = 'status-completed';
+                            break;
+                    }
+                    statusBadge.textContent = statusText;
+                    statusBadge.className = `status-badge ${statusClass}`;
+                }
+                if (statusSelect) statusSelect.value = objective.status;
+                
+                updateStats();
+                saveDashboard();
+            }
+        }
+
+        function handleProgressNumber(e) {
+            const objectiveId = parseInt(e.target.closest('.objective-card').getAttribute('data-objective-id'));
+            const progressSlider = e.target.closest('.progress-input-container').querySelector('.progress-slider');
+            const progressFill = e.target.closest('.progress-section').querySelector('.progress-fill');
+            
+            let value = parseInt(e.target.value);
+            if (isNaN(value)) value = 0;
+            if (value < 0) value = 0;
+            if (value > 100) value = 100;
+            
+            e.target.value = value;
+            progressSlider.value = value;
+            progressFill.style.width = `${value}%`;
+            progressFill.style.backgroundColor = getProgressColor(value);
+            
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                objective.progress = value;
+                objective.status = updateObjectiveStatus(objective);
+                
+                // Update status badge
+                const card = e.target.closest('.objective-card');
+                const statusBadge = card.querySelector('.status-badge');
+                const statusSelect = card.querySelector('.status-select');
+                if (statusBadge) {
+                    let statusText = '';
+                    let statusClass = '';
+                    switch(objective.status) {
+                        case 'not-started': 
+                            statusText = 'Not Started'; 
+                            statusClass = 'status-not-started';
+                            break;
+                        case 'in-progress': 
+                            statusText = 'In Progress'; 
+                            statusClass = 'status-in-progress';
+                            break;
+                        case 'completed': 
+                            statusText = 'Completed'; 
+                            statusClass = 'status-completed';
+                            break;
+                    }
+                    statusBadge.textContent = statusText;
+                    statusBadge.className = `status-badge ${statusClass}`;
+                }
+                if (statusSelect) statusSelect.value = objective.status;
+                
+                updateStats();
+                saveDashboard();
+            }
+        }
+
+        function handleEditObjective(e) {
+            const card = e.target.closest('.objective-card');
+            card.classList.add('editing');
+            
+            // Focus on the title input
+            setTimeout(() => {
+                const titleInput = card.querySelector('.objective-title-input');
+                if (titleInput) {
+                    titleInput.focus();
+                    titleInput.select();
+                }
+            }, 100);
+        }
+
+        function handleSaveObjective(e) {
+            const card = e.target.closest('.objective-card');
+            const objectiveId = parseInt(card.getAttribute('data-objective-id'));
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            
+            if (objective) {
+                // Get updated title
+                const titleInput = card.querySelector('.objective-title-input');
+                if (titleInput && titleInput.value.trim()) {
+                    objective.title = titleInput.value.trim();
+                }
+                
+                // Get updated status
+                const statusSelect = card.querySelector('.status-select');
+                if (statusSelect) {
+                    objective.status = statusSelect.value;
+                }
+                
+                // Exit edit mode
+                card.classList.remove('editing');
+                
+                // Update and re-render
+                updateObjectiveStatus(objective);
+                renderObjectives();
+                updateStats();
+                saveDashboard();
+                
+                showNotification('Objective updated successfully');
+            }
+        }
+
+        function handleCancelObjectiveEdit(e) {
+            const card = e.target.closest('.objective-card');
+            card.classList.remove('editing');
+        }
+
+        function handleDeleteObjective(e) {
+            const card = e.target.closest('.objective-card');
+            const objectiveId = parseInt(card.getAttribute('data-objective-id'));
+            objectiveToDelete = objectiveId;
+            
+            // Get objective title for confirmation message
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+            if (objective) {
+                document.getElementById('delete-objective-text').textContent = 
+                    `Are you sure you want to delete "${objective.title}"? This action cannot be undone and will delete all associated tasks, notes, and attachments.`;
+            }
+            
+            document.getElementById('delete-objective-modal').classList.add('show');
+        }
+
+        // Calendar functions
         function showCalendar(target) {
             calendarState.inputTarget = target;
             
@@ -3220,8 +4222,7 @@
             // Render calendar
             renderCalendar();
         }
-        
-        // Render calendar
+
         function renderCalendar() {
             const monthYearElement = document.getElementById('calendar-month-year');
             const daysContainer = document.getElementById('calendar-days');
@@ -3273,8 +4274,32 @@
                 day.textContent = i;
                 daysContainer.appendChild(day);
             }
+            
+            // Handle day selection
+            document.querySelectorAll('.calendar-day').forEach(day => {
+                if (!day.classList.contains('other-month')) {
+                    day.addEventListener('click', function() {
+                        // Remove previous selection
+                        document.querySelectorAll('.calendar-day').forEach(d => {
+                            d.classList.remove('selected');
+                        });
+                        
+                        // Add selection to clicked day
+                        this.classList.add('selected');
+                        
+                        // Update selected date
+                        const dayNum = parseInt(this.textContent);
+                        const selectedDate = new Date(calendarState.currentYear, calendarState.currentMonth, dayNum);
+                        calendarState.selectedDate = selectedDate;
+                        
+                        // Update display
+                        document.getElementById('selected-date-display').textContent = 
+                            `Selected: ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    });
+                }
+            });
         }
-        
+
         // Save period
         function savePeriod() {
             const startInput = document.getElementById('period-start').value;
@@ -3321,7 +4346,7 @@
             
             // Update display and save
             updatePeriodDisplay();
-            saveReviewPeriod();
+            saveDashboard();
             
             // Switch back to display mode
             document.querySelector('.date-info-text').style.display = 'flex';
@@ -3329,7 +4354,7 @@
             
             showNotification('Review period updated');
         }
-        
+
         // Apply preset period
         function applyPresetPeriod(period) {
             const today = new Date();
@@ -3380,11 +4405,11 @@
             
             // Update display and save
             updatePeriodDisplay();
-            saveReviewPeriod();
+            saveDashboard();
             
             showNotification(`Applied ${period.toUpperCase()} period`);
         }
-        
+
         // Generate PDF
         async function generatePDF() {
             // Show progress modal
@@ -3420,9 +4445,9 @@
             pdf.setProperties({
                 title: title,
                 subject: 'Objectives Progress Report',
-                author: 'Mid-Year Objectives Dashboard',
-                keywords: 'objectives, progress, dashboard, report',
-                creator: 'Mid-Year Objectives Dashboard'
+                author: 'NCA Performance Dashboard',
+                keywords: 'objectives, progress, dashboard, report, NCA',
+                creator: 'NCA Performance Dashboard'
             });
             
             // Calculate page dimensions
@@ -3431,13 +4456,24 @@
             const margin = 15;
             const contentWidth = pageWidth - (margin * 2);
             
+            // Add NCA logo header
+            pdf.setFontSize(16);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('NATIONAL COMMUNICATIONS', pageWidth / 2, margin, { align: 'center' });
+            
+            pdf.setFontSize(24);
+            pdf.text('NCA', pageWidth / 2, margin + 8, { align: 'center' });
+            
+            pdf.setFontSize(14);
+            pdf.text('AUTHORITY', pageWidth / 2, margin + 16, { align: 'center' });
+            
             // Add title
             pdf.setFontSize(20);
             pdf.setFont('helvetica', 'bold');
-            pdf.text(title, pageWidth / 2, margin, { align: 'center' });
+            pdf.text(title, pageWidth / 2, margin + 30, { align: 'center' });
             
             // Add date range if included
-            let currentY = margin + 10;
+            let currentY = margin + 40;
             if (includeDateRange) {
                 pdf.setFontSize(12);
                 pdf.setFont('helvetica', 'normal');
@@ -3522,11 +4558,11 @@
                     pageNumber++;
                     currentY = margin;
                     
-                    // Add page header with page number
+                    // Add page header with page number and NCA logo
                     pdf.setFontSize(10);
                     pdf.setFont('helvetica', 'italic');
                     pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                    pdf.text(title, margin, margin - 5);
+                    pdf.text('NCA Performance Dashboard', margin, margin - 5);
                 }
                 
                 // Add objective title
@@ -3563,11 +4599,11 @@
                         pageNumber++;
                         currentY = margin;
                         
-                        // Add page header with page number
+                        // Add page header with page number and NCA logo
                         pdf.setFontSize(10);
                         pdf.setFont('helvetica', 'italic');
                         pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                        pdf.text(title, margin, margin - 5);
+                        pdf.text('NCA Performance Dashboard', margin, margin - 5);
                     }
                     
                     const checkbox = action.completed ? '✓' : '□';
@@ -3607,11 +4643,11 @@
                         pageNumber++;
                         currentY = margin;
                         
-                        // Add page header with page number
+                        // Add page header with page number and NCA logo
                         pdf.setFontSize(10);
                         pdf.setFont('helvetica', 'italic');
                         pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                        pdf.text(title, margin, margin - 5);
+                        pdf.text('NCA Performance Dashboard', margin, margin - 5);
                     }
                     
                     const checkbox = kpi.completed ? '✓' : '□';
@@ -3662,11 +4698,11 @@
                             pageNumber++;
                             currentY = margin;
                             
-                            // Add page header with page number
+                            // Add page header with page number and NCA logo
                             pdf.setFontSize(10);
                             pdf.setFont('helvetica', 'italic');
                             pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                            pdf.text(title, margin, margin - 5);
+                            pdf.text('NCA Performance Dashboard', margin, margin - 5);
                         }
                         
                         pdf.setFontSize(11);
@@ -3682,11 +4718,11 @@
                                 pageNumber++;
                                 currentY = margin;
                                 
-                                // Add page header with page number
+                                // Add page header with page number and NCA logo
                                 pdf.setFontSize(10);
                                 pdf.setFont('helvetica', 'italic');
                                 pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                                pdf.text(title, margin, margin - 5);
+                                pdf.text('NCA Performance Dashboard', margin, margin - 5);
                             }
                             
                             const attText = `  ${idx + 1}. ${att.name} (${formatFileSize(att.size)}) - ${att.source}: ${att.task.substring(0, 50)}${att.task.length > 50 ? '...' : ''}`;
@@ -3714,7 +4750,7 @@
             // Add footer on last page
             pdf.setFontSize(9);
             pdf.setFont('helvetica', 'italic');
-            pdf.text('Generated by Mid-Year Objectives Dashboard', pageWidth / 2, pageHeight - 10, { align: 'center' });
+            pdf.text('Generated by NCA Performance Dashboard', pageWidth / 2, pageHeight - 10, { align: 'center' });
             
             // Hide progress modal
             document.getElementById('pdf-progress').classList.add('hidden');
@@ -3725,6 +4761,42 @@
             
             showNotification('PDF report generated successfully!');
         }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is already logged in
+            const user = getCurrentUser();
+            if (user) {
+                // Load dashboard data
+                const dashboardData = getDashboardData(user.email);
+                
+                // Update user UI
+                document.getElementById('user-name').textContent = user.name;
+                document.getElementById('user-email').textContent = user.email;
+                
+                // Update avatar with initials
+                if (user.email === ADMIN_EMAIL) {
+                    document.getElementById('user-avatar').textContent = "AD";
+                    document.getElementById('admin-controls').style.display = 'block';
+                } else {
+                    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    document.getElementById('user-avatar').textContent = initials.substring(0, 2);
+                    document.getElementById('admin-controls').style.display = 'none';
+                }
+                
+                // Show dashboard
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('dashboard-container').style.display = 'block';
+                
+                // Initialize dashboard
+                initializeDashboard(dashboardData);
+                
+                // Setup admin event listeners if admin
+                if (user.email === ADMIN_EMAIL) {
+                    setupAdminEventListeners();
+                }
+            }
+        });
     </script>
 </body>
 </html>
