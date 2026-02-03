@@ -8,6 +8,10 @@
     <!-- Add jsPDF and html2canvas libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         /* Add login system styles */
         .auth-container {
@@ -1723,7 +1727,7 @@
                 <button type="button" class="auth-btn" onclick="login()">Login</button>
                 <div class="auth-links">
                     <p>Don't have an account? <a onclick="switchAuthTab('signup')">Sign up here</a></p>
-                    <p>Forgot password? <a onclick="switchAuthTab('forgot')">Reset password</a></p>
+                    <p>Forgot password? <a onclick="forgotPassword()">Reset password</a></p>
                 </div>
             </div>
             
@@ -1771,7 +1775,7 @@
                 <div class="form-group">
                     <label for="signup-secret-answer">Security Answer</label>
                     <input type="text" id="signup-secret-answer" required placeholder="Enter answer to security question">
-                    <small style="color: #7f8c8d; display: block; margin-top: 5px;">This will be used to reset your password if forgotten</small>
+                    <small style="color: #7f8c8d; display: block; margin-top: 5px;">This will be used for account recovery</small>
                 </div>
                 
                 <button type="button" class="auth-btn" onclick="signup()">Create Account</button>
@@ -1786,29 +1790,9 @@
                     <label for="forgot-email">Email</label>
                     <input type="email" id="forgot-email" required placeholder="Enter your email">
                 </div>
-                <button type="button" class="auth-btn" onclick="verifyEmail()">Verify Email</button>
+                <button type="button" class="auth-btn" onclick="sendPasswordReset()">Send Reset Email</button>
                 <div class="auth-links">
                     <p>Remember your password? <a onclick="switchAuthTab('login')">Back to login</a></p>
-                </div>
-            </div>
-            
-            <!-- Reset Password Form (hidden initially) -->
-            <div id="reset-form" class="auth-form">
-                <div class="form-group">
-                    <label id="secret-question-display">Security Question</label>
-                    <input type="text" id="reset-secret-answer" required placeholder="Enter your answer">
-                </div>
-                <div class="form-group">
-                    <label for="reset-new-password">New Password</label>
-                    <input type="password" id="reset-new-password" required placeholder="Enter new password">
-                </div>
-                <div class="form-group">
-                    <label for="reset-confirm-password">Confirm New Password</label>
-                    <input type="password" id="reset-confirm-password" required placeholder="Confirm new password">
-                </div>
-                <button type="button" class="auth-btn" onclick="resetPassword()">Reset Password</button>
-                <div class="auth-links">
-                    <p><a onclick="switchAuthTab('login')">Back to login</a></p>
                 </div>
             </div>
         </div>
@@ -2182,40 +2166,35 @@
 
     <script>
         // =========================
-        // AUTHENTICATION LOGIC
+        // FIREBASE INTEGRATION
         // =========================
+
+        // Your Firebase configuration - REPLACE WITH YOUR VALUES
         
-        // Admin credentials
+
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+        apiKey: "AIzaSyA3CqhXhc_vRk3ozrVcdSnrG5xrWRbShJ0",
+        authDomain: "nca-performance-dashboard.firebaseapp.com",
+        projectId: "nca-performance-dashboard",
+        storageBucket: "nca-performance-dashboard.firebasestorage.app",
+        messagingSenderId: "96934659510",
+        appId: "1:96934659510:web:9e725ffe6be2e07c2e2d17",
+        measurementId: "G-L3NK5MDXL0"
+};
+
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // =========================
+        // AUTHENTICATION FUNCTIONS
+        // =========================
+
+        // Admin email (for special admin features)
         const ADMIN_EMAIL = "admin@nca.gov";
-        const ADMIN_PASSWORD = "admin123";
-        
-        // Storage helpers
-        function getUsers() {
-            return JSON.parse(localStorage.getItem("users") || "[]");
-        }
-
-        function saveUsers(users) {
-            localStorage.setItem("users", JSON.stringify(users));
-        }
-
-        // Dashboard data storage
-        function getDashboardData(email) {
-            const data = localStorage.getItem("dashboardData_" + email.toLowerCase());
-            return data ? JSON.parse(data) : null;
-        }
-
-        function saveDashboardData(email, data) {
-            localStorage.setItem("dashboardData_" + email.toLowerCase(), JSON.stringify(data));
-        }
-
-        // Get current user from session storage
-        function getCurrentUser() {
-            return JSON.parse(sessionStorage.getItem("currentUser"));
-        }
-
-        function setCurrentUser(user) {
-            sessionStorage.setItem("currentUser", JSON.stringify(user));
-        }
 
         // Screen switching
         function switchAuthTab(tab) {
@@ -2224,27 +2203,20 @@
                 t.classList.remove('active');
             });
             
-            // Hide all auth tabs text
-            document.querySelectorAll('.auth-tab').forEach(t => {
-                t.classList.remove('active');
-                if (t.textContent.includes(tab === 'login' ? 'Login' : tab === 'signup' ? 'Sign Up' : 'Reset')) {
-                    // For reset password flow, we don't highlight any tab
-                    if (tab !== 'forgot' && tab !== 'reset') {
-                        t.classList.add('active');
-                    }
-                }
-            });
-            
-            // Update forms
+            // Hide all auth forms
             document.querySelectorAll('.auth-form').forEach(form => {
                 form.classList.remove('active');
             });
             
-            if (tab === 'forgot' || tab === 'reset') {
-                // For password reset flow, show appropriate form but don't highlight tab
+            if (tab === 'login' || tab === 'signup') {
+                document.querySelectorAll('.auth-tab').forEach(t => {
+                    if (t.textContent.includes(tab === 'login' ? 'Login' : 'Sign Up')) {
+                        t.classList.add('active');
+                    }
+                });
                 document.getElementById(`${tab}-form`).classList.add('active');
-            } else {
-                document.getElementById(`${tab}-form`).classList.add('active');
+            } else if (tab === 'forgot') {
+                document.getElementById('forgot-form').classList.add('active');
             }
             
             // Clear any error messages
@@ -2284,8 +2256,8 @@
             }, 5000);
         }
 
-        // Sign up logic
-        function signup() {
+        // Sign up logic with Firebase
+        async function signup() {
             const name = document.getElementById('signup-name').value.trim();
             const email = document.getElementById('signup-email').value.trim().toLowerCase();
             const pass = document.getElementById('signup-password').value;
@@ -2315,204 +2287,175 @@
                 finalSecretQuestion = customQuestion;
             }
 
-            const users = getUsers();
-            if (users.find(u => u.email.toLowerCase() === email)) {
-                return showAuthError("Email already exists");
+            try {
+                // 1. Create Firebase Authentication user
+                const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
+                const user = userCredential.user;
+                
+                // 2. Save user data to Firestore
+                await db.collection('users').doc(user.uid).set({
+                    name: name,
+                    email: email,
+                    secretQuestion: finalSecretQuestion,
+                    secretAnswer: secretAnswer.toLowerCase(),
+                    createdAt: new Date().toISOString(),
+                    isAdmin: email === ADMIN_EMAIL.toLowerCase()
+                });
+                
+                // 3. Create initial dashboard data
+                const initialData = {
+                    objectivesData: [],
+                    reviewPeriod: {
+                        start: 'June 2024',
+                        end: 'July 2024',
+                        display: 'Mid-Year Review Period (June 2024 - July 2024)'
+                    },
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                await db.collection('dashboards').doc(user.uid).set(initialData);
+                
+                showAuthSuccess("Account created successfully!");
+                switchAuthTab('login');
+                
+            } catch (error) {
+                console.error('Signup error:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    showAuthError("Email already exists");
+                } else if (error.code === 'auth/invalid-email') {
+                    showAuthError("Invalid email address");
+                } else if (error.code === 'auth/weak-password') {
+                    showAuthError("Password is too weak");
+                } else {
+                    showAuthError(error.message);
+                }
             }
-
-            // Store user with secret question and answer
-            users.push({ 
-                name, 
-                email: email, // Store in lowercase
-                pass,
-                secretQuestion: finalSecretQuestion,
-                secretAnswer: secretAnswer.toLowerCase() // Store in lowercase for case-insensitive comparison
-            });
-            saveUsers(users);
-
-            // Create initial dashboard data for new user - EMPTY SLATE
-            const initialData = {
-                objectivesData: [], // Empty array - no objectives
-                reviewPeriod: {
-                    start: 'June 2024',
-                    end: 'July 2024',
-                    display: 'Mid-Year Review Period (June 2024 - July 2024)'
-                },
-                lastUpdated: new Date().toISOString()
-            };
-            
-            saveDashboardData(email, initialData);
-            showAuthSuccess("Account created successfully! Please login.");
-            switchAuthTab('login');
         }
 
-        // Login logic
-        function login() {
+        // Login logic with Firebase
+        async function login() {
             const email = document.getElementById('login-email').value.trim().toLowerCase();
             const pass = document.getElementById('login-password').value;
 
-            // Check if admin login (admin email is case-sensitive for security)
-            if (email === ADMIN_EMAIL.toLowerCase() && pass === ADMIN_PASSWORD) {
-                // Admin login
-                const adminUser = {
-                    name: "Administrator",
-                    email: ADMIN_EMAIL,
-                    isAdmin: true
+            try {
+                // Sign in with Firebase
+                const userCredential = await auth.signInWithEmailAndPassword(email, pass);
+                const user = userCredential.user;
+                
+                // Get user data from Firestore
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                
+                if (!userDoc.exists) {
+                    await auth.signOut();
+                    return showAuthError("User data not found. Please contact administrator.");
+                }
+                
+                const userData = userDoc.data();
+                
+                // Set current user in session storage
+                const currentUser = {
+                    uid: user.uid,
+                    name: userData.name,
+                    email: userData.email,
+                    isAdmin: userData.isAdmin || false
                 };
                 
-                setCurrentUser(adminUser);
+                sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
                 
-                // Update user UI
-                document.getElementById('user-name').textContent = adminUser.name;
-                document.getElementById('user-email').textContent = adminUser.email;
+                // Load dashboard data
+                const dashboardDoc = await db.collection('dashboards').doc(user.uid).get();
+                const dashboardData = dashboardDoc.exists ? dashboardDoc.data() : null;
+                
+                // Initialize dashboard
+                initializeDashboard(dashboardData);
+                
+                // Update UI
+                document.getElementById('user-name').textContent = userData.name;
+                document.getElementById('user-email').textContent = userData.email;
                 
                 // Update avatar with initials
-                document.getElementById('user-avatar').textContent = "AD";
+                if (currentUser.isAdmin) {
+                    document.getElementById('user-avatar').textContent = "AD";
+                    document.getElementById('admin-controls').style.display = 'block';
+                    setupAdminEventListeners();
+                } else {
+                    const initials = userData.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    document.getElementById('user-avatar').textContent = initials.substring(0, 2);
+                    document.getElementById('admin-controls').style.display = 'none';
+                }
                 
                 // Show dashboard
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('dashboard-container').style.display = 'block';
                 
-                // Show admin controls
-                document.getElementById('admin-controls').style.display = 'block';
-                
-                // Initialize dashboard with admin view
-                initializeDashboard(null);
-                
-                // Add admin event listeners
-                setupAdminEventListeners();
-                
-                return;
+            } catch (error) {
+                console.error('Login error:', error);
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    showAuthError("Invalid login credentials");
+                } else if (error.code === 'auth/invalid-email') {
+                    showAuthError("Invalid email address");
+                } else if (error.code === 'auth/user-disabled') {
+                    showAuthError("Account has been disabled");
+                } else {
+                    showAuthError(error.message);
+                }
             }
-
-            // Regular user login - case insensitive email comparison
-            const users = getUsers();
-            const user = users.find(u => u.email.toLowerCase() === email && u.pass === pass);
-            if (!user) {
-                return showAuthError("Invalid login credentials");
-            }
-
-            // Set current user
-            setCurrentUser(user);
-            
-            // Load dashboard data
-            const dashboardData = getDashboardData(email);
-            
-            // Initialize dashboard
-            initializeDashboard(dashboardData);
-            
-            // Update user UI
-            document.getElementById('user-name').textContent = user.name;
-            document.getElementById('user-email').textContent = user.email;
-            
-            // Update avatar with initials
-            const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
-            document.getElementById('user-avatar').textContent = initials.substring(0, 2);
-            
-            // Hide admin controls for regular users
-            document.getElementById('admin-controls').style.display = 'none';
-            
-            // Show dashboard
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('dashboard-container').style.display = 'block';
         }
 
-        // Forgot password - verify email
-        function verifyEmail() {
+        // Forgot password function
+        async function sendPasswordReset() {
             const email = document.getElementById('forgot-email').value.trim().toLowerCase();
             
             if (!email) {
                 return showAuthError("Please enter your email address");
             }
             
-            const users = getUsers();
-            const user = users.find(u => u.email.toLowerCase() === email);
-            
-            if (!user) {
-                return showAuthError("No account found with this email address");
+            try {
+                await auth.sendPasswordResetEmail(email);
+                showAuthSuccess("Password reset email sent! Check your inbox.");
+                setTimeout(() => switchAuthTab('login'), 3000);
+            } catch (error) {
+                console.error('Password reset error:', error);
+                if (error.code === 'auth/user-not-found') {
+                    showAuthError("No account found with this email");
+                } else {
+                    showAuthError(error.message);
+                }
             }
-            
-            // Store the email being reset in session storage
-            sessionStorage.setItem("resetEmail", email);
-            
-            // Show the security question
-            document.getElementById('secret-question-display').textContent = user.secretQuestion;
-            
-            // Switch to reset form
-            switchAuthTab('reset');
         }
 
-        // Reset password
-        function resetPassword() {
-            const email = sessionStorage.getItem("resetEmail");
-            const secretAnswer = document.getElementById('reset-secret-answer').value.trim().toLowerCase();
-            const newPassword = document.getElementById('reset-new-password').value;
-            const confirmPassword = document.getElementById('reset-confirm-password').value;
-            
-            if (!secretAnswer || !newPassword || !confirmPassword) {
-                return showAuthError("All fields are required");
-            }
-            
-            if (newPassword !== confirmPassword) {
-                return showAuthError("Passwords do not match");
-            }
-            
-            if (newPassword.length < 6) {
-                return showAuthError("Password must be at least 6 characters");
-            }
-            
-            const users = getUsers();
-            const userIndex = users.findIndex(u => u.email.toLowerCase() === email);
-            
-            if (userIndex === -1) {
-                return showAuthError("User not found");
-            }
-            
-            // Verify secret answer (case-insensitive)
-            if (users[userIndex].secretAnswer !== secretAnswer.toLowerCase()) {
-                return showAuthError("Incorrect security answer");
-            }
-            
-            // Update password
-            users[userIndex].pass = newPassword;
-            saveUsers(users);
-            
-            // Clear reset email from session storage
-            sessionStorage.removeItem("resetEmail");
-            
-            // Show success message and switch back to login
-            showAuthSuccess("Password reset successfully! Please login with your new password.");
-            
-            // Clear forms
-            document.getElementById('forgot-email').value = '';
-            document.getElementById('reset-secret-answer').value = '';
-            document.getElementById('reset-new-password').value = '';
-            document.getElementById('reset-confirm-password').value = '';
-            
-            switchAuthTab('login');
+        // Forgot password link handler
+        function forgotPassword() {
+            switchAuthTab('forgot');
         }
 
         // Sign Out Function
-        function signOut() {
-            // Clear session storage
-            sessionStorage.removeItem("currentUser");
-            sessionStorage.removeItem("resetEmail");
-            
-            // Hide dashboard
-            document.getElementById('dashboard-container').style.display = 'none';
-            
-            // Show login screen
-            document.getElementById('auth-container').style.display = 'flex';
-            
-            // Switch to login tab
-            switchAuthTab('login');
-            
-            // Clear login form
-            document.getElementById('login-email').value = '';
-            document.getElementById('login-password').value = '';
-            
-            // Show success message
-            showAuthSuccess("You have been signed out successfully");
+        async function signOut() {
+            try {
+                await auth.signOut();
+                sessionStorage.removeItem('currentUser');
+                
+                // Hide dashboard
+                document.getElementById('dashboard-container').style.display = 'none';
+                
+                // Show login screen
+                document.getElementById('auth-container').style.display = 'flex';
+                
+                // Switch to login tab
+                switchAuthTab('login');
+                
+                // Clear login form
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+                
+                // Clear dashboard data
+                objectivesData = [];
+                
+                // Show success message
+                showAuthSuccess("You have been signed out successfully");
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
         }
 
         // =========================
@@ -2560,80 +2503,112 @@
             });
         }
         
-        function clearAllProfiles() {
-            // Clear all user data from localStorage
-            localStorage.clear();
-            
-            // Reinitialize with empty users array
-            localStorage.setItem("users", JSON.stringify([]));
-            
-            // Show success notification
-            showNotification('All user profiles and data have been cleared successfully.');
-            
-            // If admin is currently logged in, refresh their view
-            const user = getCurrentUser();
-            if (user && user.email === ADMIN_EMAIL) {
-                initializeDashboard(null);
-            }
-        }
-        
-        function resetAllUserData() {
-            const users = getUsers();
-            
-            // Reset data for each user
-            users.forEach(user => {
-                const emptyData = {
-                    objectivesData: [],
-                    reviewPeriod: {
-                        start: 'June 2024',
-                        end: 'July 2024',
-                        display: 'Mid-Year Review Period (June 2024 - July 2024)'
-                    },
-                    lastUpdated: new Date().toISOString()
-                };
-                saveDashboardData(user.email, emptyData);
-            });
-            
-            // Show success notification
-            showNotification('All user data has been reset successfully.');
-            
-            // If admin is currently logged in, refresh their view
-            const user = getCurrentUser();
-            if (user && user.email === ADMIN_EMAIL) {
-                initializeDashboard(null);
-            }
-        }
-        
-        function exportAllData() {
-            const users = getUsers();
-            const allData = {
-                exportedAt: new Date().toISOString(),
-                totalUsers: users.length,
-                users: []
-            };
-            
-            // Collect data for each user
-            users.forEach(user => {
-                const userData = getDashboardData(user.email);
-                allData.users.push({
-                    name: user.name,
-                    email: user.email,
-                    data: userData
+        async function clearAllProfiles() {
+            try {
+                // Get all users from Firestore
+                const usersSnapshot = await db.collection('users').get();
+                const batch = db.batch();
+                
+                usersSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
                 });
-            });
-            
-            // Create download link
-            const dataStr = JSON.stringify(allData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            
-            const exportFileDefaultName = `nca_dashboard_export_${new Date().toISOString().slice(0,10)}.json`;
-            
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
-            
-            showNotification('All data exported successfully.');
+                
+                // Also delete all dashboard data
+                const dashboardsSnapshot = await db.collection('dashboards').get();
+                dashboardsSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                
+                // Show success notification
+                showNotification('All user profiles and data have been cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing profiles:', error);
+                showNotification('Error clearing profiles: ' + error.message);
+            }
+        }
+        
+        async function resetAllUserData() {
+            try {
+                // Get all users from Firestore
+                const usersSnapshot = await db.collection('users').get();
+                const batch = db.batch();
+                
+                usersSnapshot.forEach(doc => {
+                    // Reset dashboard data for each user
+                    const emptyData = {
+                        objectivesData: [],
+                        reviewPeriod: {
+                            start: 'June 2024',
+                            end: 'July 2024',
+                            display: 'Mid-Year Review Period (June 2024 - July 2024)'
+                        },
+                        lastUpdated: new Date().toISOString()
+                    };
+                    
+                    batch.set(db.collection('dashboards').doc(doc.id), emptyData);
+                });
+                
+                await batch.commit();
+                
+                // Show success notification
+                showNotification('All user data has been reset successfully.');
+                
+                // If admin is currently logged in, refresh their view
+                const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+                if (user && user.isAdmin) {
+                    objectivesData = [];
+                    renderObjectives();
+                    updateStats();
+                }
+                
+            } catch (error) {
+                console.error('Error resetting data:', error);
+                showNotification('Error resetting data: ' + error.message);
+            }
+        }
+        
+        async function exportAllData() {
+            try {
+                const usersSnapshot = await db.collection('users').get();
+                const allData = {
+                    exportedAt: new Date().toISOString(),
+                    totalUsers: usersSnapshot.size,
+                    users: []
+                };
+                
+                // Collect data for each user
+                for (const userDoc of usersSnapshot.docs) {
+                    const userData = userDoc.data();
+                    const dashboardDoc = await db.collection('dashboards').doc(userDoc.id).get();
+                    
+                    allData.users.push({
+                        uid: userDoc.id,
+                        name: userData.name,
+                        email: userData.email,
+                        isAdmin: userData.isAdmin || false,
+                        data: dashboardDoc.exists ? dashboardDoc.data() : null
+                    });
+                }
+                
+                // Create download link
+                const dataStr = JSON.stringify(allData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                
+                const exportFileDefaultName = `nca_dashboard_export_${new Date().toISOString().slice(0,10)}.json`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                showNotification('All data exported successfully.');
+            } catch (error) {
+                console.error('Error exporting data:', error);
+                showNotification('Error exporting data: ' + error.message);
+            }
         }
 
         // =========================
@@ -2650,7 +2625,6 @@
         // Dashboard state management
         let currentFilter = 'all';
         let currentView = 'grid';
-        let currentUser = null;
         
         // Calendar state
         let calendarState = {
@@ -2698,10 +2672,10 @@
             updatePeriodDisplay();
         }
 
-        // Save dashboard data
-        function saveDashboard() {
-            const user = getCurrentUser();
-            if (!user || user.email === ADMIN_EMAIL) return; // Don't save for admin
+        // Save dashboard data to Firebase
+        async function saveDashboard() {
+            const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+            if (!user.uid || user.isAdmin) return; // Don't save for admin
             
             const dashboardData = {
                 objectivesData: objectivesData,
@@ -2709,8 +2683,16 @@
                 lastUpdated: new Date().toISOString()
             };
             
-            saveDashboardData(user.email, dashboardData);
-            showNotification('Progress saved successfully!');
+            try {
+                // Save to Firestore
+                await db.collection('dashboards').doc(user.uid).set(dashboardData);
+                showNotification('Progress saved and synced across devices!');
+            } catch (error) {
+                console.error('Error saving to Firestore:', error);
+                // Fallback to localStorage
+                localStorage.setItem("dashboardData_" + user.email, JSON.stringify(dashboardData));
+                showNotification('Saved locally (offline mode)');
+            }
         }
 
         // Update period display
@@ -4445,9 +4427,9 @@
             pdf.setProperties({
                 title: title,
                 subject: 'Objectives Progress Report',
-                author: 'NCA Performance Tracker Dashboard',
+                author: 'NCA Performance Dashboard',
                 keywords: 'objectives, progress, dashboard, report, NCA',
-                creator: 'NCA Performance Tracker Dashboard'
+                creator: 'NCA Performance Dashboard'
             });
             
             // Calculate page dimensions
@@ -4562,7 +4544,7 @@
                     pdf.setFontSize(10);
                     pdf.setFont('helvetica', 'italic');
                     pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                    pdf.text('NCA Performance Tracker Dashboard', margin, margin - 5);
+                    pdf.text('NCA Performance Dashboard', margin, margin - 5);
                 }
                 
                 // Add objective title
@@ -4603,7 +4585,7 @@
                         pdf.setFontSize(10);
                         pdf.setFont('helvetica', 'italic');
                         pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                        pdf.text('NCA Performance Tracker Dashboard', margin, margin - 5);
+                        pdf.text('NCA Performance Dashboard', margin, margin - 5);
                     }
                     
                     const checkbox = action.completed ? '✓' : '□';
@@ -4647,7 +4629,7 @@
                         pdf.setFontSize(10);
                         pdf.setFont('helvetica', 'italic');
                         pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                        pdf.text('NCA Performance Tracker Dashboard', margin, margin - 5);
+                        pdf.text('NCA Performance Dashboard', margin, margin - 5);
                     }
                     
                     const checkbox = kpi.completed ? '✓' : '□';
@@ -4702,7 +4684,7 @@
                             pdf.setFontSize(10);
                             pdf.setFont('helvetica', 'italic');
                             pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                            pdf.text('NCA Performance Tracker Dashboard', margin, margin - 5);
+                            pdf.text('NCA Performance Dashboard', margin, margin - 5);
                         }
                         
                         pdf.setFontSize(11);
@@ -4722,7 +4704,7 @@
                                 pdf.setFontSize(10);
                                 pdf.setFont('helvetica', 'italic');
                                 pdf.text(`Page ${pageNumber}`, pageWidth - margin, margin - 5, { align: 'right' });
-                                pdf.text('NCA Performance Tracker Dashboard', margin, margin - 5);
+                                pdf.text('NCA Performance Dashboard', margin, margin - 5);
                             }
                             
                             const attText = `  ${idx + 1}. ${att.name} (${formatFileSize(att.size)}) - ${att.source}: ${att.task.substring(0, 50)}${att.task.length > 50 ? '...' : ''}`;
@@ -4750,7 +4732,7 @@
             // Add footer on last page
             pdf.setFontSize(9);
             pdf.setFont('helvetica', 'italic');
-            pdf.text('Generated by NCA Performance Tracker Dashboard', pageWidth / 2, pageHeight - 10, { align: 'center' });
+            pdf.text('Generated by NCA Performance Dashboard', pageWidth / 2, pageHeight - 10, { align: 'center' });
             
             // Hide progress modal
             document.getElementById('pdf-progress').classList.add('hidden');
@@ -4762,40 +4744,69 @@
             showNotification('PDF report generated successfully!');
         }
 
-        // Initialize the application
+        // Initialize the application with Firebase auth state listener
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if user is already logged in
-            const user = getCurrentUser();
-            if (user) {
-                // Load dashboard data
-                const dashboardData = getDashboardData(user.email);
-                
-                // Update user UI
-                document.getElementById('user-name').textContent = user.name;
-                document.getElementById('user-email').textContent = user.email;
-                
-                // Update avatar with initials
-                if (user.email === ADMIN_EMAIL) {
-                    document.getElementById('user-avatar').textContent = "AD";
-                    document.getElementById('admin-controls').style.display = 'block';
+            // Listen for auth state changes
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    // User is signed in
+                    try {
+                        const userDoc = await db.collection('users').doc(user.uid).get();
+                        
+                        if (!userDoc.exists) {
+                            await auth.signOut();
+                            document.getElementById('auth-container').style.display = 'flex';
+                            document.getElementById('dashboard-container').style.display = 'none';
+                            showAuthError("User data not found. Please contact administrator.");
+                            return;
+                        }
+                        
+                        const userData = userDoc.data();
+                        
+                        const currentUser = {
+                            uid: user.uid,
+                            name: userData.name,
+                            email: userData.email,
+                            isAdmin: userData.isAdmin || false
+                        };
+                        
+                        sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        
+                        // Load dashboard data
+                        const dashboardDoc = await db.collection('dashboards').doc(user.uid).get();
+                        const dashboardData = dashboardDoc.exists ? dashboardDoc.data() : null;
+                        
+                        // Update UI
+                        document.getElementById('user-name').textContent = userData.name;
+                        document.getElementById('user-email').textContent = userData.email;
+                        
+                        if (currentUser.isAdmin) {
+                            document.getElementById('user-avatar').textContent = "AD";
+                            document.getElementById('admin-controls').style.display = 'block';
+                            setupAdminEventListeners();
+                        } else {
+                            const initials = userData.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                            document.getElementById('user-avatar').textContent = initials.substring(0, 2);
+                            document.getElementById('admin-controls').style.display = 'none';
+                        }
+                        
+                        document.getElementById('auth-container').style.display = 'none';
+                        document.getElementById('dashboard-container').style.display = 'block';
+                        
+                        initializeDashboard(dashboardData);
+                        
+                    } catch (error) {
+                        console.error('Auth state change error:', error);
+                        document.getElementById('auth-container').style.display = 'flex';
+                        document.getElementById('dashboard-container').style.display = 'none';
+                    }
                 } else {
-                    const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
-                    document.getElementById('user-avatar').textContent = initials.substring(0, 2);
-                    document.getElementById('admin-controls').style.display = 'none';
+                    // No user signed in
+                    sessionStorage.removeItem('currentUser');
+                    document.getElementById('auth-container').style.display = 'flex';
+                    document.getElementById('dashboard-container').style.display = 'none';
                 }
-                
-                // Show dashboard
-                document.getElementById('auth-container').style.display = 'none';
-                document.getElementById('dashboard-container').style.display = 'block';
-                
-                // Initialize dashboard
-                initializeDashboard(dashboardData);
-                
-                // Setup admin event listeners if admin
-                if (user.email === ADMIN_EMAIL) {
-                    setupAdminEventListeners();
-                }
-            }
+            });
         });
     </script>
 </body>
