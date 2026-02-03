@@ -12,6 +12,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Add EmailJS for email notifications -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         /* Add login system styles */
         .auth-container {
@@ -2170,24 +2172,194 @@
         // =========================
 
         // Your Firebase configuration - REPLACE WITH YOUR VALUES
-        
-
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
-        apiKey: "AIzaSyA3CqhXhc_vRk3ozrVcdSnrG5xrWRbShJ0",
-        authDomain: "nca-performance-dashboard.firebaseapp.com",
-        projectId: "nca-performance-dashboard",
-        storageBucket: "nca-performance-dashboard.firebasestorage.app",
-        messagingSenderId: "96934659510",
-        appId: "1:96934659510:web:9e725ffe6be2e07c2e2d17",
-        measurementId: "G-L3NK5MDXL0"
-};
-
+            apiKey: "AIzaSyA3CqhXhc_vRk3ozrVcdSnrG5xrWRbShJ0",
+            authDomain: "nca-performance-dashboard.firebaseapp.com",
+            projectId: "nca-performance-dashboard",
+            storageBucket: "nca-performance-dashboard.firebasestorage.app",
+            messagingSenderId: "96934659510",
+            appId: "1:96934659510:web:9e725ffe6be2e07c2e2d17",
+            measurementId: "G-L3NK5MDXL0"
+        };
 
         // Initialize Firebase
         const app = firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+
+        // =========================
+        // EMAILJS CONFIGURATION
+        // =========================
+        
+        // Initialize EmailJS - YOU NEED TO REPLACE THESE WITH YOUR OWN VALUES
+        // 1. Go to https://www.emailjs.com/ and sign up
+        // 2. Create an email service (Gmail, Outlook, etc.)
+        // 3. Create an email template
+        // 4. Get your Public Key, Service ID, and Template ID
+        
+        const EMAILJS_CONFIG = {
+            PUBLIC_KEY: 'gVetMtelxyr4RJUdg-4xr', // Replace with your EmailJS public key
+            SERVICE_ID: 'service_0af14is', // Replace with your EmailJS service ID
+            TEMPLATE_ID: 'template_4qzmzr7' // Replace with your EmailJS template ID
+        };
+        
+        // Initialize EmailJS if credentials are provided
+        if (EMAILJS_CONFIG.PUBLIC_KEY !== 'gVetMtelxyr4RJUdg-4xr') {
+            emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+        }
+        
+        // =========================
+        // TASK REMINDER EMAIL FUNCTION
+        // =========================
+        
+        let lastEmailCheckDate = null;
+        let sentReminders = new Set(); // Track sent reminders to avoid duplicates
+        
+        async function checkAndSendReminderEmails() {
+            const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+            if (!user.email || !user.name) {
+                console.log('User not logged in, skipping email check');
+                return;
+            }
+            
+            // Check if we already checked today
+            const today = new Date().toDateString();
+            if (lastEmailCheckDate === today) {
+                return; // Already checked today
+            }
+            
+            // Skip if EmailJS is not configured
+            if (EMAILJS_CONFIG.PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY') {
+                console.log('EmailJS not configured, skipping email notifications');
+                lastEmailCheckDate = today;
+                return;
+            }
+            
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+            let remindersToSend = [];
+            
+            // Check each objective for tasks with notes due tomorrow
+            objectivesData.forEach(objective => {
+                const allTasks = [...objective.actionPoints, ...objective.kpis];
+                
+                allTasks.forEach(task => {
+                    if (task.notes && task.notes.length > 0) {
+                        task.notes.forEach((note, noteIndex) => {
+                            if (note.date) {
+                                const dueDate = new Date(note.date);
+                                const dueDateStr = dueDate.toISOString().split('T')[0];
+                                
+                                // Check if due tomorrow
+                                if (dueDateStr === tomorrowStr) {
+                                    // Create a unique key for this reminder
+                                    const reminderKey = `${objective.id}_${task.text}_${note.date}`;
+                                    
+                                    // Check if we already sent this reminder
+                                    if (!sentReminders.has(reminderKey)) {
+                                        remindersToSend.push({
+                                            objectiveId: objective.id,
+                                            objectiveTitle: objective.title,
+                                            taskText: task.text,
+                                            noteDate: note.date,
+                                            noteText: note.text || 'No additional details',
+                                            reminderKey: reminderKey
+                                        });
+                                        
+                                        // Add to sent reminders set
+                                        sentReminders.add(reminderKey);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Send emails for each reminder
+            if (remindersToSend.length > 0) {
+                console.log(`Found ${remindersToSend.length} task(s) due tomorrow, sending reminders...`);
+                
+                for (const reminder of remindersToSend) {
+                    await sendReminderEmail(user, reminder);
+                }
+                
+                // Update last check date
+                lastEmailCheckDate = today;
+                
+                // Show notification in dashboard
+                showNotification(`Reminder emails sent for ${remindersToSend.length} task(s) due tomorrow`);
+            } else {
+                console.log('No tasks due tomorrow');
+                lastEmailCheckDate = today;
+            }
+        }
+        
+        async function sendReminderEmail(user, reminder) {
+            try {
+                // Prepare email parameters
+                const templateParams = {
+                    to_name: user.name,
+                    to_email: user.email,
+                    objective_id: reminder.objectiveId,
+                    objective_title: reminder.objectiveTitle,
+                    task_text: reminder.taskText,
+                    due_date: formatDate(reminder.noteDate),
+                    note_content: reminder.noteText,
+                    dashboard_url: window.location.href,
+                    current_date: new Date().toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    })
+                };
+                
+                // Send email using EmailJS
+                const response = await emailjs.send(
+                    EMAILJS_CONFIG.SERVICE_ID,
+                    EMAILJS_CONFIG.TEMPLATE_ID,
+                    templateParams
+                );
+                
+                console.log('Reminder email sent successfully:', response.status, response.text);
+                return true;
+                
+            } catch (error) {
+                console.error('Failed to send reminder email:', error);
+                return false;
+            }
+        }
+        
+        // Schedule daily email checks
+        function scheduleDailyEmailChecks() {
+            // Check immediately on load
+            checkAndSendReminderEmails();
+            
+            // Then check every hour (in case the page stays open)
+            setInterval(checkAndSendReminderEmails, 60 * 60 * 1000); // 1 hour
+            
+            // Also check at 9 AM daily (if page is open)
+            const now = new Date();
+            const nineAM = new Date(now);
+            nineAM.setHours(9, 0, 0, 0);
+            
+            if (now > nineAM) {
+                nineAM.setDate(nineAM.getDate() + 1);
+            }
+            
+            const timeUntilNineAM = nineAM - now;
+            
+            setTimeout(() => {
+                checkAndSendReminderEmails();
+                // Then check every 24 hours
+                setInterval(checkAndSendReminderEmails, 24 * 60 * 60 * 1000);
+            }, timeUntilNineAM);
+            
+            console.log('Daily email checks scheduled');
+        }
 
         // =========================
         // AUTHENTICATION FUNCTIONS
@@ -2665,6 +2837,12 @@
             // Check for reminders on load
             setTimeout(checkReminders, 1000);
             
+            // Start email reminder scheduler if user is logged in
+            const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+            if (user.email) {
+                scheduleDailyEmailChecks();
+            }
+            
             // Initialize calendar
             renderCalendar();
             
@@ -3127,7 +3305,7 @@
             container.className = `objectives-container ${currentView}-view`;
         }
 
-        // Check reminders
+        // Check reminders (original function - keeps UI reminders)
         function checkReminders() {
             const now = new Date();
             const reminderNotification = document.getElementById('reminder-notification');
@@ -3145,26 +3323,28 @@
                 
                 allTasks.forEach(task => {
                     // Check if task has notes with due dates
-                    task.notes.forEach(note => {
-                        if (note.dueDate) {
-                            const dueDate = new Date(note.dueDate);
-                            const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-                            
-                            if (daysUntilDue >= 0 && daysUntilDue <= 7) {
-                                hasReminders = true;
-                                const statusClass = daysUntilDue <= 3 ? 'task-due-soon' : '';
-                                const urgencyText = daysUntilDue <= 3 ? ' (Due soon!)' : daysUntilDue <= 7 ? ' (Due this week)' : '';
+                    if (task.notes) {
+                        task.notes.forEach(note => {
+                            if (note.date) {
+                                const dueDate = new Date(note.date);
+                                const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
                                 
-                                reminderHTML += `
-                                    <li class="reminder-item ${statusClass}">
-                                        <strong>Objective ${objective.id}:</strong> ${task.text.substring(0, 50)}...
-                                        <br>
-                                        <small>Due: ${formatDate(note.dueDate)}${urgencyText}</small>
-                                    </li>
-                                `;
+                                if (daysUntilDue >= 0 && daysUntilDue <= 7) {
+                                    hasReminders = true;
+                                    const statusClass = daysUntilDue <= 3 ? 'task-due-soon' : '';
+                                    const urgencyText = daysUntilDue <= 3 ? ' (Due soon!)' : daysUntilDue <= 7 ? ' (Due this week)' : '';
+                                    
+                                    reminderHTML += `
+                                        <li class="reminder-item ${statusClass}">
+                                            <strong>Objective ${objective.id}:</strong> ${task.text.substring(0, 50)}...
+                                            <br>
+                                            <small>Due: ${formatDate(note.date)}${urgencyText}</small>
+                                        </li>
+                                    `;
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 });
             });
             
@@ -3805,6 +3985,7 @@
             addAttachmentForm.style.display = 'block';
         }
 
+        // When a note is saved with a date, check if we need to send email
         function handleSaveNote(e) {
             const btn = e.target.closest('.note-form-btn.save');
             const taskItem = btn.closest('.task-item');
@@ -3826,6 +4007,9 @@
                             date: noteDateInput.value,
                             text: noteTextInput.value.trim()
                         });
+                        
+                        // Check if this note is due tomorrow and send email
+                        setTimeout(() => checkAndSendReminderEmails(), 1000);
                         
                         // Re-render the task
                         const taskListElement = taskItem.closest('.task-list');
@@ -4794,6 +4978,9 @@
                         document.getElementById('dashboard-container').style.display = 'block';
                         
                         initializeDashboard(dashboardData);
+                        
+                        // Start email scheduler for logged in user
+                        scheduleDailyEmailChecks();
                         
                     } catch (error) {
                         console.error('Auth state change error:', error);
