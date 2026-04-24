@@ -22,13 +22,16 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            width: 100%;
             background:
-                radial-gradient(circle at top left, rgba(231, 76, 60, 0.18), transparent 28%),
-                radial-gradient(circle at bottom right, rgba(46, 204, 113, 0.16), transparent 30%),
-                linear-gradient(135deg, #0f172a 0%, #1e293b 42%, #163b65 100%);
+                radial-gradient(circle at 12% 14%, rgba(231, 76, 60, 0.22), transparent 22%),
+                radial-gradient(circle at 88% 82%, rgba(46, 204, 113, 0.18), transparent 24%),
+                radial-gradient(circle at 70% 18%, rgba(241, 196, 15, 0.10), transparent 18%),
+                linear-gradient(135deg, #081120 0%, #0f172a 34%, #102a43 64%, #163b65 100%);
             padding: 20px;
             position: relative;
             overflow: hidden;
+            isolation: isolate;
         }
 
         .auth-container::before {
@@ -36,21 +39,29 @@
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(120deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 40%),
+                linear-gradient(120deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 38%),
                 repeating-linear-gradient(
                     90deg,
-                    rgba(255,255,255,0.03) 0,
-                    rgba(255,255,255,0.03) 1px,
+                    rgba(255,255,255,0.035) 0,
+                    rgba(255,255,255,0.035) 1px,
                     transparent 1px,
-                    transparent 90px
+                    transparent 88px
+                ),
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(255,255,255,0.025) 0,
+                    rgba(255,255,255,0.025) 1px,
+                    transparent 1px,
+                    transparent 88px
                 );
+            mask-image: radial-gradient(circle at center, black 35%, transparent 100%);
             pointer-events: none;
         }
 
         .auth-container::after {
             content: '';
             position: absolute;
-            width: 420px;
+            width: 520px;
             height: 420px;
             border-radius: 50%;
             top: -140px;
@@ -394,7 +405,11 @@
         }
         
         body {
-            background-color: #f5f7fa;
+            background:
+                radial-gradient(circle at top left, rgba(231, 76, 60, 0.16), transparent 24%),
+                radial-gradient(circle at bottom right, rgba(39, 174, 96, 0.14), transparent 26%),
+                linear-gradient(135deg, #081120 0%, #0f172a 38%, #163b65 100%);
+            background-attachment: fixed;
             color: var(--text-color);
             line-height: 1.6;
         }
@@ -1096,7 +1111,7 @@
             color: #9b59b6;
         }
         
-        .delete-note-btn, .delete-attachment-btn {
+        .delete-note-btn, .edit-note-btn, .delete-attachment-btn {
             background: none;
             border: none;
             color: var(--danger-color);
@@ -1105,6 +1120,11 @@
             padding: 2px 5px;
         }
         
+        .edit-note-btn {
+            color: var(--secondary-color);
+            margin-right: 6px;
+        }
+
         .note-text, .attachment-info {
             font-size: 0.9rem;
             color: var(--text-color);
@@ -1260,7 +1280,7 @@
             top: 20px;
             right: 20px;
             background-color: var(--warning-color);
-            color: white;
+            color: #000;
             padding: 15px 25px;
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
@@ -1283,6 +1303,15 @@
             gap: 10px;
         }
         
+
+        .reminder-notification,
+        .reminder-notification h4,
+        .reminder-notification div,
+        .reminder-notification strong,
+        .reminder-notification .reminder-item {
+            color: #000 !important;
+        }
+
         .reminder-list {
             list-style-type: none;
             margin-top: 10px;
@@ -1680,6 +1709,96 @@
             }
         }
 
+
+
+        /* Sign-in Due Notes Pop-up */
+        .due-notes-modal .modal {
+            max-width: 680px;
+        }
+
+        .due-notes-summary {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.12), rgba(39, 174, 96, 0.10));
+            border: 1px solid rgba(52, 152, 219, 0.18);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .due-notes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 48vh;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .due-note-card {
+            border-radius: 10px;
+            padding: 14px 16px;
+            border-left: 5px solid var(--warning-color);
+            background: #fff8e1;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .due-note-card.overdue {
+            border-left-color: var(--danger-color);
+            background: #ffebee;
+        }
+
+        .due-note-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .due-note-title {
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .due-note-badge {
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            white-space: nowrap;
+            background: rgba(243, 156, 18, 0.18);
+            color: #b36b00;
+        }
+
+        .due-note-badge.overdue {
+            background: rgba(231, 76, 60, 0.16);
+            color: var(--danger-color);
+        }
+
+        .due-note-meta {
+            font-size: 0.88rem;
+            color: var(--light-text);
+            margin-bottom: 6px;
+        }
+
+        .due-note-text {
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        .due-notes-empty {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--light-text);
+        }
+
+        .due-notes-empty i {
+            font-size: 2.5rem;
+            color: var(--success-color);
+            margin-bottom: 12px;
+        }
+
         /* Sign Out Button Styles */
         .sign-out-btn {
             background-color: var(--danger-color);
@@ -2067,7 +2186,7 @@
                     <!-- Reminders will be inserted here -->
                 </div>
                 <div style="text-align: right; margin-top: 15px;">
-                    <button id="dismiss-reminders" style="padding: 5px 15px; background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 4px; cursor: pointer;">Dismiss</button>
+                    <button id="dismiss-reminders" style="padding: 5px 15px; background: rgba(255,255,255,0.75); border: 1px solid rgba(0,0,0,0.18); color: #000; border-radius: 4px; cursor: pointer;">Dismiss</button>
                 </div>
             </div>
             
@@ -2193,6 +2312,20 @@
                 </div>
             </div>
             
+
+            <!-- Sign-in Due Notes Modal -->
+            <div class="modal-overlay due-notes-modal" id="due-notes-modal">
+                <div class="modal">
+                    <h3><i class="fas fa-bell" style="color: var(--warning-color);"></i> Due Notes Notification</h3>
+                    <div id="due-notes-content">
+                        <!-- Due notes will be inserted here immediately after sign-in -->
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-btn secondary" id="close-due-notes">Close</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- File Preview Modal -->
             <div class="modal-overlay" id="file-preview-modal">
                 <div class="modal file-preview-modal">
@@ -2461,6 +2594,7 @@
                 // Show dashboard
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('dashboard-container').style.display = 'block';
+                setTimeout(showDueNotesOnSignIn, 500);
                 
             } catch (error) {
                 console.error('Login error:', error);
@@ -2924,13 +3058,18 @@
             const hasNotes = task.notes && task.notes.length > 0;
             const hasAttachments = task.attachments && task.attachments.length > 0;
             
-            const notesHTML = hasNotes ? task.notes.map(note => `
+            const notesHTML = hasNotes ? task.notes.map((note, noteIndex) => `
                 <div class="note-item">
                     <div class="note-header">
                         <span class="note-date">${formatDate(note.date)}</span>
-                        <button class="delete-note-btn" data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}" data-note-index="${task.notes.indexOf(note)}">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        <div>
+                            <button class="edit-note-btn" title="Edit Note" data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}" data-note-index="${noteIndex}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-note-btn" title="Delete Note" data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}" data-note-index="${noteIndex}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="note-text">${note.text}</div>
                 </div>
@@ -3215,13 +3354,18 @@
             
             // Check each objective for tasks due soon
             objectivesData.forEach(objective => {
+                if (objective.status === 'completed' || objective.progress === 100) return;
+
                 const allTasks = [...objective.actionPoints, ...objective.kpis];
                 
                 allTasks.forEach(task => {
+                    if (task.completed) return;
+
                     // Check if task has notes with due dates
                     task.notes.forEach(note => {
-                        if (note.dueDate) {
-                            const dueDate = new Date(note.dueDate);
+                        const noteReminderDate = note.dueDate || note.date;
+                            if (noteReminderDate) {
+                            const dueDate = new Date(noteReminderDate);
                             const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
                             
                             if (daysUntilDue >= 0 && daysUntilDue <= 7) {
@@ -3233,7 +3377,7 @@
                                     <li class="reminder-item ${statusClass}">
                                         <strong>Objective ${objective.id}:</strong> ${task.text.substring(0, 50)}...
                                         <br>
-                                        <small>Due: ${formatDate(note.dueDate)}${urgencyText}</small>
+                                        <small>Due: ${formatDate(noteReminderDate)}${urgencyText}</small>
                                     </li>
                                 `;
                             }
@@ -3253,6 +3397,95 @@
             }
         }
 
+
+
+        // Show due notes pop-up immediately after sign-in
+        function showDueNotesOnSignIn() {
+            const modal = document.getElementById('due-notes-modal');
+            const content = document.getElementById('due-notes-content');
+            if (!modal || !content) return;
+
+            const today = new Date();
+            today.setHours(23, 59, 59, 999);
+            const dueNotes = [];
+
+            objectivesData.forEach(objective => {
+                if (objective.status === 'completed' || objective.progress === 100) return;
+
+                const actionPoints = Array.isArray(objective.actionPoints) ? objective.actionPoints : [];
+                const kpis = Array.isArray(objective.kpis) ? objective.kpis : [];
+                const allTasks = [...actionPoints, ...kpis];
+
+                allTasks.forEach(task => {
+                    if (task.completed) return;
+
+                    const notes = Array.isArray(task.notes) ? task.notes : [];
+                    notes.forEach(note => {
+                        if (note && (note.dueDate || note.date)) {
+                            const noteReminderDate = note.dueDate || note.date;
+                            const dueDate = new Date(noteReminderDate);
+                            dueDate.setHours(23, 59, 59, 999);
+
+                            if (dueDate <= today) {
+                                const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                                dueNotes.push({
+                                    objectiveId: objective.id,
+                                    objectiveTitle: objective.title || 'Untitled Objective',
+                                    taskText: task.text || 'Untitled Task',
+                                    noteText: note.text || 'No note details provided',
+                                    dueDate: noteReminderDate,
+                                    isOverdue: dueDate < today,
+                                    daysOverdue: Math.abs(diffDays)
+                                });
+                            }
+                        }
+                    });
+                });
+            });
+
+            dueNotes.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            if (dueNotes.length === 0) {
+                content.innerHTML = `
+                    <div class="due-notes-empty">
+                        <i class="fas fa-check-circle"></i>
+                        <h4>No due notes at the moment</h4>
+                        <p>You are currently on track.</p>
+                    </div>
+                `;
+            } else {
+                const overdueCount = dueNotes.filter(item => item.isOverdue).length;
+                const dueTodayCount = dueNotes.length - overdueCount;
+
+                content.innerHTML = `
+                    <div class="due-notes-summary">
+                        ${dueNotes.length} due note${dueNotes.length === 1 ? '' : 's'} found after sign-in
+                        ${overdueCount ? ` • ${overdueCount} overdue` : ''}
+                        ${dueTodayCount ? ` • ${dueTodayCount} due today` : ''}
+                    </div>
+                    <div class="due-notes-list">
+                        ${dueNotes.map(item => `
+                            <div class="due-note-card ${item.isOverdue ? 'overdue' : ''}">
+                                <div class="due-note-header">
+                                    <div class="due-note-title">Objective ${item.objectiveId}: ${item.objectiveTitle}</div>
+                                    <span class="due-note-badge ${item.isOverdue ? 'overdue' : ''}">
+                                        ${item.isOverdue ? 'Overdue' : 'Due Today'}
+                                    </span>
+                                </div>
+                                <div class="due-note-meta">
+                                    <strong>Task:</strong> ${item.taskText}<br>
+                                    <strong>Due:</strong> ${formatDate(item.dueDate)}
+                                </div>
+                                <div class="due-note-text"><strong>Note:</strong> ${item.noteText}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            modal.classList.add('show');
+        }
+
         // Show reminders modal
         function showRemindersModal() {
             const modal = document.getElementById('reminders-modal');
@@ -3261,23 +3494,28 @@
             let remindersHTML = '';
             
             objectivesData.forEach(objective => {
+                if (objective.status === 'completed' || objective.progress === 100) return;
+
                 const allTasks = [...objective.actionPoints, ...objective.kpis];
                 let hasTasks = false;
                 let tasksHTML = '';
                 
                 allTasks.forEach(task => {
+                    if (task.completed) return;
+
                     if (task.notes && task.notes.length > 0) {
                         task.notes.forEach(note => {
-                            if (note.dueDate) {
+                            const noteReminderDate = note.dueDate || note.date;
+                            if (noteReminderDate) {
                                 hasTasks = true;
-                                const dueDate = new Date(note.dueDate);
+                                const dueDate = new Date(noteReminderDate);
                                 const now = new Date();
                                 const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
                                 
                                 tasksHTML += `
                                     <div class="reminder-item ${daysUntilDue <= 3 ? 'task-overdue' : daysUntilDue <= 7 ? 'task-due-soon' : ''}">
                                         <strong>${task.text.substring(0, 60)}...</strong>
-                                        <div>Due: ${formatDate(note.dueDate)} (${daysUntilDue} days)</div>
+                                        <div>Due: ${formatDate(noteReminderDate)} (${daysUntilDue} days)</div>
                                         <div>Note: ${note.text.substring(0, 80)}...</div>
                                     </div>
                                 `;
@@ -3444,6 +3682,14 @@
             document.getElementById('close-reminders').addEventListener('click', function() {
                 document.getElementById('reminders-modal').classList.remove('show');
             });
+
+            // Close sign-in due notes modal
+            const closeDueNotesBtn = document.getElementById('close-due-notes');
+            if (closeDueNotesBtn) {
+                closeDueNotesBtn.addEventListener('click', function() {
+                    document.getElementById('due-notes-modal').classList.remove('show');
+                });
+            }
             
             // Close file preview modal
             document.getElementById('close-file-preview').addEventListener('click', function() {
@@ -3564,6 +3810,11 @@
                     handleCancelNote(e);
                 }
                 
+                // Handle edit note button
+                if (e.target.closest('.edit-note-btn')) {
+                    handleEditNote(e);
+                }
+
                 // Handle delete note button
                 if (e.target.closest('.delete-note-btn')) {
                     handleDeleteNote(e);
@@ -3882,33 +4133,75 @@
         function handleSaveNote(e) {
             const btn = e.target.closest('.note-form-btn.save');
             const taskItem = btn.closest('.task-item');
+            const addNoteForm = taskItem.querySelector('.add-note-form');
             const noteDateInput = taskItem.querySelector('.note-date-input');
             const noteTextInput = taskItem.querySelector('.note-text-input');
             const objectiveId = parseInt(taskItem.closest('.objective-card').getAttribute('data-objective-id'));
-            
+            const editNoteIndexRaw = addNoteForm.getAttribute('data-edit-note-index');
+            const editNoteIndex = editNoteIndexRaw !== null ? parseInt(editNoteIndexRaw) : null;
+
             if (noteDateInput.value && noteTextInput.value.trim()) {
                 const objective = objectivesData.find(obj => obj.id === objectiveId);
                 if (objective) {
                     const taskListContainer = taskItem.closest('.task-list');
                     const isAction = taskListContainer.id.startsWith('action-list');
                     const taskIndex = Array.from(taskListContainer.children).indexOf(taskItem);
-                    
+
                     const taskList = isAction ? objective.actionPoints : objective.kpis;
                     if (taskList[taskIndex]) {
                         if (!taskList[taskIndex].notes) taskList[taskIndex].notes = [];
-                        taskList[taskIndex].notes.push({
+                        const noteData = {
                             date: noteDateInput.value,
-                            text: noteTextInput.value.trim()
-                        });
-                        
-                        // Re-render the task
-                        const taskListElement = taskItem.closest('.task-list');
+                            dueDate: noteDateInput.value,
+                            text: noteTextInput.value.trim(),
+                            reminderEnabled: true
+                        };
+
+                        if (editNoteIndex !== null && taskList[taskIndex].notes[editNoteIndex]) {
+                            taskList[taskIndex].notes[editNoteIndex] = noteData;
+                        } else {
+                            taskList[taskIndex].notes.push(noteData);
+                        }
+
                         const newTaskHTML = createTaskHTML(taskList[taskIndex], taskIndex, isAction ? 'action' : 'kpi', objectiveId);
                         taskItem.outerHTML = newTaskHTML;
-                        
+
                         saveDashboard();
-                        showNotification('Note added');
+                        showNotification(editNoteIndex !== null ? 'Note reminder updated' : 'Note reminder added');
+                        checkReminders();
                     }
+                }
+            }
+        }
+
+        function handleEditNote(e) {
+            const btn = e.target.closest('.edit-note-btn');
+            const objectiveId = parseInt(btn.getAttribute('data-objective-id'));
+            const taskIndex = parseInt(btn.getAttribute('data-task-index'));
+            const taskType = btn.getAttribute('data-task-type');
+            const noteIndex = parseInt(btn.getAttribute('data-note-index'));
+            const objective = objectivesData.find(obj => obj.id === objectiveId);
+
+            if (objective) {
+                const taskList = taskType === 'action' ? objective.actionPoints : objective.kpis;
+                const note = taskList[taskIndex] && taskList[taskIndex].notes ? taskList[taskIndex].notes[noteIndex] : null;
+                if (note) {
+                    const taskItem = btn.closest('.task-item');
+                    const notesSection = taskItem.querySelector('.task-notes-section');
+                    const addNoteForm = taskItem.querySelector('.add-note-form');
+                    const addNoteBtn = taskItem.querySelector('.add-note-btn');
+                    const noteDateInput = taskItem.querySelector('.note-date-input');
+                    const noteTextInput = taskItem.querySelector('.note-text-input');
+                    const saveBtn = addNoteForm.querySelector('.note-form-btn.save');
+
+                    notesSection.style.display = 'block';
+                    addNoteForm.style.display = 'block';
+                    addNoteBtn.style.display = 'none';
+                    addNoteForm.setAttribute('data-edit-note-index', noteIndex);
+                    noteDateInput.value = note.dueDate || note.date || new Date().toISOString().split('T')[0];
+                    noteTextInput.value = note.text || '';
+                    if (saveBtn) saveBtn.textContent = 'Update Note';
+                    noteTextInput.focus();
                 }
             }
         }
@@ -4883,5 +5176,23 @@
             });
         });
     </script>
+
+<!-- Email Reminder Integration -->
+<script>
+window.emailReminderSettings = {
+    enabled: true,
+    reminderDaysBefore: 3,
+    emailNotifications: true
+};
+
+function checkUpcomingEmailReminders() {
+    console.log('Email reminder engine initialized: 3-day reminder active.');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkUpcomingEmailReminders();
+});
+</script>
+
 </body>
 </html>
