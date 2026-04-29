@@ -3032,8 +3032,8 @@
             
             card.innerHTML = `
                 <div class="card-header">
-                    <div class="objective-title">${objective.id}. ${objective.title}</div>
-                    <input type="text" class="objective-title-input" value="${objective.title}">
+                    <div class="objective-title">${objective.id}. ${getObjectiveDisplayTitle(objective)}</div>
+                    <input type="text" class="objective-title-input" value="${getObjectiveDisplayTitle(objective)}">
                     
                     <div class="status-badge ${statusClass}">${statusText}</div>
                     <select class="status-select">
@@ -4601,7 +4601,7 @@
             const objective = objectivesData.find(obj => obj.id === objectiveId);
             if (objective) {
                 document.getElementById('delete-objective-text').textContent = 
-                    `Are you sure you want to delete "${objective.title}"? This action cannot be undone and will delete all associated tasks, notes, and attachments.`;
+                    `Are you sure you want to delete "${getObjectiveDisplayTitle(objective)}"? This action cannot be undone and will delete all associated tasks, notes, and attachments.`;
             }
             
             document.getElementById('delete-objective-modal').classList.add('show');
@@ -4977,7 +4977,7 @@
                 // Add objective title
                 pdf.setFontSize(14);
                 pdf.setFont('helvetica', 'bold');
-                const objectiveTitle = `Objective ${objective.id}: ${objective.title}`;
+                const objectiveTitle = `Objective ${objective.id}: ${getObjectiveDisplayTitle(objective)}`;
                 const splitTitle = pdf.splitTextToSize(objectiveTitle, contentWidth - 20);
                 pdf.text(splitTitle, margin, currentY);
                 currentY += (splitTitle.length * 7) + 3;
@@ -6342,6 +6342,155 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hardAttempts > 90) clearInterval(hardInterval);
   }, 1000);
 })();
+</script>
+
+
+<!-- ===== Hierarchy Upgrade Patch Inserted ===== -->
+<script>
+const ROLE_TYPES = {
+  ADMIN: 'admin',
+  DIRECTOR: 'director',
+  DEPUTY_DIRECTOR: 'deputy_director',
+  UNIT_HEAD: 'unit_head',
+  UNIT_MEMBER: 'unit_member'
+};
+
+async function loadUserHierarchy(userId) {
+  const userDoc = await db.collection('users').doc(userId).get();
+  if (!userDoc.exists) return null;
+  const userData = userDoc.data();
+  return {
+    uid: userId,
+    role: userData.role || 'unit_member',
+    divisionId: userData.divisionId || null,
+    divisionName: userData.divisionName || null,
+    unitId: userData.unitId || null,
+    unitName: userData.unitName || null,
+    deputyDirectorId: userData.deputyDirectorId || null,
+    supervisedUnits: userData.supervisedUnits || []
+  };
+}
+
+function resolveVisibilityScope(hierarchy, divisionDeputyCount = 1) {
+  switch(hierarchy.role) {
+    case ROLE_TYPES.ADMIN:
+      return { mode: 'organization', scope: 'all' };
+    case ROLE_TYPES.DIRECTOR:
+      return { mode: 'division', scope: hierarchy.divisionId };
+    case ROLE_TYPES.DEPUTY_DIRECTOR:
+      return divisionDeputyCount <= 1
+        ? { mode: 'division', scope: hierarchy.divisionId }
+        : { mode: 'deputy', scope: hierarchy.supervisedUnits };
+    case ROLE_TYPES.UNIT_HEAD:
+    case ROLE_TYPES.UNIT_MEMBER:
+      return { mode: 'unit', scope: hierarchy.unitId };
+    default:
+      return { mode: 'personal', scope: hierarchy.uid };
+  }
+}
+</script>
+<!-- ===== End Hierarchy Upgrade Patch ===== -->
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const roleSelect = document.getElementById('role-select');
+    const unitContainer = document.getElementById('unit-selection-container');
+
+    function updateUnitVisibility() {
+        if (!roleSelect || !unitContainer) return;
+        const role = (roleSelect.value || '').toLowerCase();
+
+        if (role === 'admin' || role === 'director') {
+            unitContainer.style.display = 'none';
+        } else {
+            unitContainer.style.display = '';
+        }
+    }
+
+    if (roleSelect) {
+        roleSelect.addEventListener('change', updateUnitVisibility);
+        updateUnitVisibility();
+    }
+});
+</script>
+
+
+
+
+
+<script>
+function getObjectiveDisplayTitle(objective) {
+    const rawTitle = objective.title || '';
+    const currentMode =
+        window.currentDashboardMode ||
+        window.dashboardMode ||
+        window.activeDashboardMode ||
+        'personal';
+
+    const aggregatedModes = ['unit', 'division', 'deputy', 'organization', 'admin'];
+
+    if (!aggregatedModes.includes(String(currentMode).toLowerCase())) {
+        return rawTitle;
+    }
+
+    if (rawTitle.includes('Unit-Obj-')) {
+        return rawTitle;
+    }
+
+    const unitName =
+        objective.unitName ||
+        objective.unit ||
+        (window.currentUser && (window.currentUser.unitName || window.currentUser.unit)) ||
+        'Unknown';
+
+    const objectiveNumber =
+        objective.objectiveNumber ||
+        objective.objNumber ||
+        objective.number ||
+        1;
+
+    return `${unitName} Unit-Obj-${objectiveNumber}. ${rawTitle}`;
+}
+</script>
+
+
+<script>
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('button, a, [role="button"]');
+    if (!target) return;
+
+    const text = (target.textContent || '').toLowerCase();
+    const id = (target.id || '').toLowerCase();
+
+    if (text.includes('my dashboard') || id.includes('mydashboard') || id.includes('personaldashboard')) {
+        window.currentDashboardMode = 'personal';
+    }
+
+    if (text.includes('unit dashboard') || id.includes('unitdashboard')) {
+        window.currentDashboardMode = 'unit';
+    }
+
+    if (text.includes('division') || id.includes('divisiondashboard')) {
+        window.currentDashboardMode = 'division';
+    }
+
+    if (text.includes('deputy') || id.includes('deputydashboard')) {
+        window.currentDashboardMode = 'deputy';
+    }
+
+    if (text.includes('admin') || id.includes('admindashboard')) {
+        window.currentDashboardMode = 'admin';
+    }
+});
+
+// Default personal mode on initial login/dashboard load.
+if (!window.currentDashboardMode) {
+    window.currentDashboardMode = 'personal';
+}
 </script>
 
 </body>
