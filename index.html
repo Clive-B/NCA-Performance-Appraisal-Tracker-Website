@@ -6135,22 +6135,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function hardEnsureLabelsExist(){
-    const headerLeft = document.querySelector('.header-left');
-    if (!headerLeft) return;
-    let panel = document.getElementById('nca-hard-org-meta-panel');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'nca-hard-org-meta-panel';
-      panel.className = 'org-meta-panel';
-      panel.innerHTML = `
-        <span class="org-meta-badge" id="org-division-label"><i class="fas fa-building"></i> Division: Unassigned</span>
-        <span class="org-meta-badge" id="org-unit-label"><i class="fas fa-users"></i> Unit: Unassigned</span>
-        <span class="org-meta-badge" id="org-role-label"><i class="fas fa-user-shield"></i> Role: Employee</span>
-      `;
-      const subtitle = headerLeft.querySelector('.subtitle');
-      if (subtitle) subtitle.insertAdjacentElement('afterend', panel);
-      else headerLeft.appendChild(panel);
-    }
+    // Duplicate badge prevention: the original org-meta-panel already creates
+    // the Division / Unit / Role badges, so this fallback must not add a
+    // second row. It only removes the fallback row if an older cached version
+    // created it.
+    const duplicatePanel = document.getElementById('nca-hard-org-meta-panel');
+    if (duplicatePanel) duplicatePanel.remove();
   }
 
   async function hardRefreshLabels(){
