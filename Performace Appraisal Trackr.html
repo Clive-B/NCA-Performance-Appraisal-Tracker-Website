@@ -3032,8 +3032,8 @@
             
             card.innerHTML = `
                 <div class="card-header">
-                    <div class="objective-title">${objective.id}. ${getObjectiveDisplayTitle(objective)}</div>
-                    <input type="text" class="objective-title-input" value="${getObjectiveDisplayTitle(objective)}">
+                    <div class="objective-title">${getObjectiveDisplayTitle(objective)}</div>
+                    <input type="text" class="objective-title-input" value="${getObjectiveEditTitle(objective)}">
                     
                     <div class="status-badge ${statusClass}">${statusText}</div>
                     <select class="status-select">
@@ -6422,75 +6422,149 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-<script>
-function getObjectiveDisplayTitle(objective) {
-    const rawTitle = objective.title || '';
-    const currentMode =
-        window.currentDashboardMode ||
-        window.dashboardMode ||
-        window.activeDashboardMode ||
-        'personal';
 
-    const aggregatedModes = ['unit', 'division', 'deputy', 'organization', 'admin'];
 
-    if (!aggregatedModes.includes(String(currentMode).toLowerCase())) {
-        return rawTitle;
-    }
 
-    if (rawTitle.includes('Unit-Obj-')) {
-        return rawTitle;
-    }
 
-    const unitName =
-        objective.unitName ||
-        objective.unit ||
-        (window.currentUser && (window.currentUser.unitName || window.currentUser.unit)) ||
-        'Unknown';
 
-    const objectiveNumber =
-        objective.objectiveNumber ||
-        objective.objNumber ||
-        objective.number ||
-        1;
 
-    return `${unitName} Unit-Obj-${objectiveNumber}. ${rawTitle}`;
-}
-</script>
+
+
+
+
 
 
 <script>
-document.addEventListener('click', function(e) {
-    const target = e.target.closest('button, a, [role="button"]');
-    if (!target) return;
+(function () {
+    function stripOldDisplayPrefixes(title) {
+        let cleaned = String(title || '').trim();
 
-    const text = (target.textContent || '').toLowerCase();
-    const id = (target.id || '').toLowerCase();
+        // Remove old generic unit prefix e.g. "unit-obj-1."
+        cleaned = cleaned.replace(/^\s*unit-obj-\d+\.\s*/i, '');
 
-    if (text.includes('my dashboard') || id.includes('mydashboard') || id.includes('personaldashboard')) {
+        // Remove previous unit-aware prefix e.g. "Innovation Unit-Obj-1."
+        cleaned = cleaned.replace(/^\s*[^.]{1,100}\s+Unit-Obj-\d+\.\s*/i, '');
+
+        // Remove external list numbering e.g. "1. Objective 1:"
+        cleaned = cleaned.replace(/^\s*\d+\.\s*/i, '');
+
+        return cleaned.trim();
+    }
+
+    function removeObjectiveLabel(title) {
+        let cleaned = String(title || '').trim();
+
+        // Remove duplicate legacy prefixes before formatting
+        cleaned = cleaned.replace(/^\s*unit-obj-\d+\.\s*/i, '');
+        cleaned = cleaned.replace(/^\s*[^.]{1,100}\s+Unit-Obj-\d+\.\s*/i, '');
+        cleaned = cleaned.replace(/^\s*Objective\s+\d+\s*:\s*/i, '');
+
+        return cleaned.trim();
+    }
+
+    function getObjectiveNumber(objective) {
+        const candidates = [
+            objective && objective.objectiveNumber,
+            objective && objective.objNumber,
+            objective && objective.number,
+            objective && objective.displayIndex,
+            objective && objective.renderIndex,
+            objective && objective.id
+        ];
+
+        for (const value of candidates) {
+            if (value === null || value === undefined || value === '') continue;
+
+            const text = String(value).trim();
+
+            // Handles numeric IDs and IDs like "unit-obj-1"
+            const match = text.match(/(\d+)$/);
+            if (match) return parseInt(match[1], 10);
+        }
+
+        return 1;
+    }
+
+    function resolveUnitName(objective) {
+        const candidates = [
+            objective && objective.unitName,
+            objective && objective.unit,
+            objective && objective.ownerUnitName,
+            objective && objective.ownerUnit,
+            objective && objective.unitLabel,
+            window.currentUser && window.currentUser.unitName,
+            window.currentUser && window.currentUser.unit,
+            window.currentUserData && window.currentUserData.unitName,
+            window.currentUserData && window.currentUserData.unit
+        ];
+
+        for (const value of candidates) {
+            if (value && String(value).trim() && !String(value).toLowerCase().includes('unknown')) {
+                return String(value).replace(/\s+Unit$/i, '').trim();
+            }
+        }
+
+        return 'Unknown';
+    }
+
+    function getDashboardMode() {
+        return String(
+            window.currentDashboardMode ||
+            window.dashboardMode ||
+            window.activeDashboardMode ||
+            'personal'
+        ).toLowerCase();
+    }
+
+    window.getObjectiveDisplayTitle = function (objective) {
+        const mode = getDashboardMode();
+        const number = getObjectiveNumber(objective);
+        const cleaned = stripOldDisplayPrefixes(objective && objective.title);
+        const aggregatedModes = ['unit', 'division', 'deputy', 'organization', 'admin'];
+
+        if (aggregatedModes.includes(mode)) {
+            const unitName = resolveUnitName(objective);
+            const titleWithoutObjectiveLabel = removeObjectiveLabel(cleaned);
+            return `${unitName} Unit-Obj-${number}. ${titleWithoutObjectiveLabel}`;
+        }
+
+        // My Dashboard format: Objective 1: ...
+        if (/^Objective\s+\d+\s*:/i.test(cleaned)) {
+            return cleaned;
+        }
+
+        return `Objective ${number}: ${cleaned}`;
+    };
+
+    window.getObjectiveEditTitle = function (objective) {
+        return stripOldDisplayPrefixes(objective && objective.title);
+    };
+
+    // Track dashboard context without changing the dashboard itself.
+    document.addEventListener('click', function(e) {
+        const target = e.target.closest('button, a, [role="button"]');
+        if (!target) return;
+
+        const text = (target.textContent || '').toLowerCase();
+        const id = (target.id || '').toLowerCase();
+
+        if (text.includes('my dashboard') || id.includes('mydashboard') || id.includes('personaldashboard')) {
+            window.currentDashboardMode = 'personal';
+        } else if (text.includes('unit dashboard') || id.includes('unitdashboard')) {
+            window.currentDashboardMode = 'unit';
+        } else if (text.includes('division') || id.includes('divisiondashboard')) {
+            window.currentDashboardMode = 'division';
+        } else if (text.includes('deputy') || id.includes('deputydashboard')) {
+            window.currentDashboardMode = 'deputy';
+        } else if (text.includes('admin') || id.includes('admindashboard')) {
+            window.currentDashboardMode = 'admin';
+        }
+    }, true);
+
+    if (!window.currentDashboardMode) {
         window.currentDashboardMode = 'personal';
     }
-
-    if (text.includes('unit dashboard') || id.includes('unitdashboard')) {
-        window.currentDashboardMode = 'unit';
-    }
-
-    if (text.includes('division') || id.includes('divisiondashboard')) {
-        window.currentDashboardMode = 'division';
-    }
-
-    if (text.includes('deputy') || id.includes('deputydashboard')) {
-        window.currentDashboardMode = 'deputy';
-    }
-
-    if (text.includes('admin') || id.includes('admindashboard')) {
-        window.currentDashboardMode = 'admin';
-    }
-});
-
-// Default personal mode on initial login/dashboard load.
-if (!window.currentDashboardMode) {
-    window.currentDashboardMode = 'personal';
-}
+})();
 </script>
 
 </body>
