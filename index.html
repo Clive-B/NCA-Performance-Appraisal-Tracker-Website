@@ -3143,7 +3143,14 @@
                     </div>
                 </div>
             `).join('') : '';
-            
+
+            const taskOwners = Array.isArray(task.owners) ? task.owners.filter(Boolean) : (task.ownerName ? [task.ownerName] : []);
+            const taskOwnersHTML = taskOwners.length ? `
+                <div class="task-owner-meta" style="font-size:0.78rem;color:#64748b;margin-top:4px;font-weight:600;">
+                    <i class="fas fa-users"></i> ${taskOwners.map(owner => (typeof htmlEscape === 'function' ? htmlEscape(owner) : owner)).join(', ')}
+                </div>
+            ` : '';
+
             return `
                 <li class="task-item ${task.completed ? 'completed' : ''}">
                     <div class="task-content">
@@ -3151,6 +3158,7 @@
                                data-task-index="${index}" data-task-type="${type}" data-objective-id="${objectiveId}">
                         <div class="task-text-container">
                             <div class="task-text">${task.text}</div>
+                            ${taskOwnersHTML}
                             <input type="text" class="task-text-input" value="${task.text}">
                         </div>
                         <div class="task-actions">
@@ -5365,12 +5373,170 @@ document.addEventListener('DOMContentLoaded', () => {
     async function refreshUsersForAssignment(profile){ const select=document.getElementById('org-user-search'); if(!select)return; select.innerHTML='<option>Loading users...</option>'; const snap=await db.collection('users').get(); const users=[]; snap.forEach(doc=>{const u=Object.assign({uid:doc.id},doc.data()); if(profile.isAdmin || !profile.division || u.division===profile.division || !u.division) users.push(u);}); users.sort((a,b)=>String(a.name||a.email).localeCompare(String(b.name||b.email))); select.innerHTML=users.map(u=>'<option value="'+u.uid+'">'+htmlEscape(u.name || u.email)+' — '+htmlEscape(u.division || 'Unassigned')+' / '+htmlEscape(u.unit || 'No unit')+'</option>').join(''); }
     async function refreshOrphanUsers(){ const list=document.getElementById('org-orphan-users'); if(!list)return; const snap=await db.collection('users').get(); const orphan=[]; snap.forEach(doc=>{const u=Object.assign({uid:doc.id},doc.data()); if(!u.division || !u.unit) orphan.push(u);}); if(!orphan.length){list.innerHTML='<div class="org-list-item">No unassigned users.</div>'; return;} list.innerHTML=orphan.map(u=>'<div class="org-list-item"><div><strong>'+htmlEscape(u.name || 'Unnamed User')+'</strong><small>'+htmlEscape(u.email || '')+'</small></div><button class="org-mini-btn" data-pick-user="'+u.uid+'">Assign</button></div>').join(''); list.querySelectorAll('[data-pick-user]').forEach(btn=>btn.addEventListener('click',()=>{document.getElementById('org-user-search').value=btn.getAttribute('data-pick-user');})); }
     async function assignUserFromModal(){ const uid=document.getElementById('org-user-search').value; const division=document.getElementById('org-assign-division').value; const unit=document.getElementById('org-assign-unit').value; const role=document.getElementById('org-assign-role').value || 'employee'; if(!uid || !division || !unit)return showNotification('Select a user, division, and unit.'); await db.collection('users').doc(uid).set({division,divisionId:safeId(division),unit,unitId:safeId(division+'-'+unit),role,profileCompleted:true,orgUpdatedAt:new Date().toISOString()},{merge:true}); await refreshUsersForAssignment(await getCurrentProfile()); await refreshOrphanUsers(); await refreshOrgLabels(); showNotification('User assignment updated.'); }
-    async function collectDashboardDocsForUsers(users){ const docs=[]; for(const u of users){ const dash=await db.collection('dashboards').doc(u.uid).get(); if(dash.exists){ const data=dash.data(); const arr=Array.isArray(data.objectivesData)?data.objectivesData:[]; arr.forEach((obj,idx)=>docs.push(Object.assign({},obj,{id:(u.name || u.email || 'User')+'-'+(obj.id || idx+1),originalId:obj.id,ownerName:u.name || u.email || 'Unknown User',ownerEmail:u.email || '',ownerUnit:u.unit || '',ownerDivision:u.division || ''}))); } } return docs; }
+    async function collectDashboardDocsForUsers(users){
+        const docs=[];
+        for(const u of users){
+            try{
+                const dash=await db.collection('dashboards').doc(u.uid).get();
+                if(dash.exists){
+                    const data=dash.data();
+                    const arr=Array.isArray(data.objectivesData)?data.objectivesData:[];
+                    arr.forEach((obj,idx)=>docs.push(Object.assign({},obj,{
+                        id:(u.name || u.email || 'User')+'-'+(obj.id || idx+1),
+                        originalId:obj.id,
+                        ownerName:u.name || u.email || 'Unknown User',
+                        ownerEmail:u.email || '',
+                        ownerUnit:u.unit || '',
+                        ownerDivision:u.division || ''
+                    })));
+                }
+            }catch(err){
+                console.warn('Could not read dashboard for unit/division member:', u.uid, err);
+            }
+        }
+        return docs;
+    }
+    function normalizeOrgText(value){ return String(value || '').toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' '); }
+    function cloneOrgTask(task, ownerName){
+        const copy=Object.assign({}, task || {});
+        copy.text=copy.text || '';
+        copy.notes=Array.isArray(copy.notes) ? copy.notes.slice() : [];
+        copy.attachments=Array.isArray(copy.attachments) ? copy.attachments.slice() : [];
+        copy.owners=ownerName ? [ownerName] : [];
+        return copy;
+    }
+    function mergeOrgTaskList(existingList, incomingList, ownerName){
+        const target=Array.isArray(existingList) ? existingList : [];
+        const incoming=Array.isArray(incomingList) ? incomingList : [];
+        incoming.forEach(task=>{
+            const key=normalizeOrgText(task && task.text);
+            if(!key)return;
+            let found=target.find(t=>normalizeOrgText(t && t.text)===key);
+            if(!found){
+                target.push(cloneOrgTask(task, ownerName));
+            }else{
+                if(ownerName){
+                    found.owners=Array.isArray(found.owners) ? found.owners : [];
+                    if(!found.owners.includes(ownerName)) found.owners.push(ownerName);
+                }
+                found.completed=Boolean(found.completed && task.completed);
+                const notes=Array.isArray(task.notes) ? task.notes : [];
+                const attachments=Array.isArray(task.attachments) ? task.attachments : [];
+                found.notes=Array.isArray(found.notes) ? found.notes : [];
+                found.attachments=Array.isArray(found.attachments) ? found.attachments : [];
+                notes.forEach(note=>{
+                    const noteKey=JSON.stringify(note || {});
+                    if(!found.notes.some(n=>JSON.stringify(n || {})===noteKey)) found.notes.push(note);
+                });
+                attachments.forEach(att=>{
+                    const attKey=(att && (att.name || '')+'|'+(att.size || '')+'|'+String(att.data || '').slice(0,40));
+                    if(!found.attachments.some(a=>((a && (a.name || '')+'|'+(a.size || '')+'|'+String(a.data || '').slice(0,40))===attKey))) found.attachments.push(att);
+                });
+            }
+        });
+        return target;
+    }
+    function aggregateObjectivesByTitle(objectives){
+        const groups=new Map();
+        (objectives || []).forEach(obj=>{
+            const key=normalizeOrgText(obj && obj.title);
+            if(!key)return;
+            const owner=obj.ownerName || 'Unknown User';
+            if(!groups.has(key)){
+                const base=Object.assign({}, obj);
+                base.id='unit-obj-'+(groups.size+1);
+                base.originalIds=obj.originalId ? [obj.originalId] : [];
+                base.ownerNames=owner ? [owner] : [];
+                base.ownerCount=owner ? 1 : 0;
+                base._progressValues=[Number(obj.progress || 0)];
+                base._statuses=[obj.status || 'not-started'];
+                base.actionPoints=[];
+                base.kpis=[];
+                mergeOrgTaskList(base.actionPoints, obj.actionPoints, owner);
+                mergeOrgTaskList(base.kpis, obj.kpis, owner);
+                groups.set(key, base);
+            }else{
+                const base=groups.get(key);
+                if(obj.originalId && !base.originalIds.includes(obj.originalId)) base.originalIds.push(obj.originalId);
+                if(owner && !base.ownerNames.includes(owner)) base.ownerNames.push(owner);
+                base.ownerCount=base.ownerNames.length;
+                base._progressValues.push(Number(obj.progress || 0));
+                base._statuses.push(obj.status || 'not-started');
+                mergeOrgTaskList(base.actionPoints, obj.actionPoints, owner);
+                mergeOrgTaskList(base.kpis, obj.kpis, owner);
+            }
+        });
+        return Array.from(groups.values()).map((obj,idx)=>{
+            const progressValues=obj._progressValues || [0];
+            obj.id='unit-obj-'+(idx+1);
+            obj.progress=Math.round(progressValues.reduce((a,b)=>a+b,0)/Math.max(progressValues.length,1));
+            const statuses=obj._statuses || [];
+            obj.status=statuses.length && statuses.every(st=>st==='completed') ? 'completed' : (statuses.some(st=>st==='in-progress' || st==='completed') ? 'in-progress' : 'not-started');
+            obj.ownerName=(obj.ownerNames || []).join(', ');
+            obj.ownerSummary=(obj.ownerNames || []).length + ' member(s)';
+            delete obj._progressValues;
+            delete obj._statuses;
+            return obj;
+        });
+    }
     function setOrgMode(mode,title,subtitle){ const banner=document.getElementById('org-mode-banner'), t=document.getElementById('org-mode-title'), s=document.getElementById('org-mode-subtitle'); if(banner)banner.classList.toggle('show', mode !== 'personal'); if(t)t.textContent=title; if(s)s.textContent=subtitle; document.body.classList.toggle('org-readonly', mode !== 'personal'); }
     async function loadPersonalDashboard(){ const authUser=firebase.auth().currentUser; if(!authUser)return; const dash=await db.collection('dashboards').doc(authUser.uid).get(); initializeDashboard(dash.exists ? dash.data() : null); setOrgMode('personal','My Dashboard','Personal objective view'); showNotification('Personal dashboard loaded.'); }
-    async function loadUnitDashboard(){ const profile=await getCurrentProfile(); if(!profile || !profile.division || !profile.unit)return showNotification('Please complete your division and unit assignment first.'); const snap=await db.collection('users').where('division','==',profile.division).where('unit','==',profile.unit).get(); const members=[]; snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data()))); const combined=await collectDashboardDocsForUsers(members); if(typeof objectivesData !== 'undefined') objectivesData=combined; window.objectivesData=combined; renderObjectives(); updateStats(); decorateOwnerLabels(); setOrgMode('unit',profile.unit+' Unit Dashboard',members.length+' member(s), '+combined.length+' combined objective(s)'); showNotification('Unit dashboard loaded.'); }
-    async function loadDivisionDashboard(){ const profile=await getCurrentProfile(); if(!canManageOrg(profile)) return showNotification('Only Divisional Heads and System Admins can view division-wide dashboards.'); const division=profile.isAdmin ? (profile.division || 'RIPS') : profile.division; if(!division)return showNotification('Assign yourself to a division first.'); const snap=await db.collection('users').where('division','==',division).get(); const members=[]; snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data()))); const combined=await collectDashboardDocsForUsers(members); if(typeof objectivesData !== 'undefined') objectivesData=combined; window.objectivesData=combined; renderObjectives(); updateStats(); decorateOwnerLabels(); setOrgMode('division',division+' Division Dashboard',members.length+' division member(s), '+combined.length+' combined objective(s)'); showNotification('Division dashboard loaded.'); }
-    function decorateOwnerLabels(){ const data=(typeof objectivesData !== 'undefined') ? objectivesData : (window.objectivesData || []); document.querySelectorAll('.objective-card').forEach(card=>{const id=card.getAttribute('data-objective-id'); const obj=data.find(o=>String(o.id)===String(id)); const title=card.querySelector('.objective-title'); if(obj && obj.ownerName && title && !title.querySelector('.objective-owner-label')) title.insertAdjacentHTML('beforeend',' <span class="objective-owner-label"><i class="fas fa-user"></i> '+htmlEscape(obj.ownerName)+(obj.ownerUnit ? ' • '+htmlEscape(obj.ownerUnit) : '')+'</span>');}); }
+    async function loadUnitDashboard(){
+        const profile=await getCurrentProfile();
+        if(!profile || !profile.division || !profile.unit)return showNotification('Please complete your division and unit assignment first.');
+        try{
+            const snap=await db.collection('users').where('division','==',profile.division).where('unit','==',profile.unit).get();
+            const members=[];
+            snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data())));
+            const combinedRaw=await collectDashboardDocsForUsers(members);
+            const combined=aggregateObjectivesByTitle(combinedRaw);
+            if(typeof objectivesData !== 'undefined') objectivesData=combined;
+            window.objectivesData=combined;
+            renderObjectives();
+            updateStats();
+            decorateOwnerLabels();
+            setOrgMode('unit',profile.unit+' Unit Dashboard',members.length+' member(s), '+combined.length+' unique objective(s) after duplicate removal');
+            showNotification('Unit dashboard loaded with duplicate objectives merged.');
+        }catch(err){
+            console.error('Unit dashboard error:',err);
+            showNotification('Could not load unit dashboard. Check Firestore permissions for users and dashboards.');
+        }
+    }
+    async function loadDivisionDashboard(){
+        const profile=await getCurrentProfile();
+        if(!canManageOrg(profile)) return showNotification('Only Divisional Heads and System Admins can view division-wide dashboards.');
+        const division=profile.isAdmin ? (profile.division || 'RIPS') : profile.division;
+        if(!division)return showNotification('Assign yourself to a division first.');
+        try{
+            const snap=await db.collection('users').where('division','==',division).get();
+            const members=[];
+            snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data())));
+            const combinedRaw=await collectDashboardDocsForUsers(members);
+            const combined=aggregateObjectivesByTitle(combinedRaw);
+            if(typeof objectivesData !== 'undefined') objectivesData=combined;
+            window.objectivesData=combined;
+            renderObjectives();
+            updateStats();
+            decorateOwnerLabels();
+            setOrgMode('division',division+' Division Dashboard',members.length+' division member(s), '+combined.length+' unique objective(s) after duplicate removal');
+            showNotification('Division dashboard loaded with duplicate objectives merged.');
+        }catch(err){
+            console.error('Division dashboard error:',err);
+            showNotification('Could not load division dashboard. Check Firestore permissions for users and dashboards.');
+        }
+    }
+    function decorateOwnerLabels(){
+        const data=(typeof objectivesData !== 'undefined') ? objectivesData : (window.objectivesData || []);
+        document.querySelectorAll('.objective-card').forEach(card=>{
+            const id=card.getAttribute('data-objective-id');
+            const obj=data.find(o=>String(o.id)===String(id));
+            const title=card.querySelector('.objective-title');
+            if(obj && title && !title.querySelector('.objective-owner-label')){
+                const label=obj.ownerSummary || (obj.ownerName ? obj.ownerName : '');
+                if(label) title.insertAdjacentHTML('beforeend',' <span class="objective-owner-label"><i class="fas fa-users"></i> '+htmlEscape(label)+(obj.ownerUnit ? ' • '+htmlEscape(obj.ownerUnit) : '')+'</span>');
+            }
+        });
+    }
     async function bootstrapOrgLayer(forcePrompt){ if(!window.firebase || !(window.db || (typeof db !== 'undefined')))return; ensureOrgUI(); try{ await seedDefaultUnits(); populateDivisionSelect('profile-division-select'); populateDivisionSelect('org-unit-division','RIPS'); populateDivisionSelect('org-assign-division','RIPS'); await refreshOrgLabels(); await maybeShowAssignmentGate(forcePrompt); }catch(err){ console.error('Organization layer bootstrap error:',err); } }
     document.addEventListener('DOMContentLoaded',()=>{
         const timer=setInterval(()=>{
