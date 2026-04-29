@@ -1895,6 +1895,32 @@
                 font-size: 0.85rem;
             }
         }
+    
+        /* =========================
+           Division / Unit Intelligence Upgrade
+           ========================= */
+        .org-meta-panel { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .org-meta-badge { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.18); color:#fff; font-size:0.86rem; font-weight:700; }
+        .org-mode-banner { display:none; margin:0 0 20px 0; padding:14px 18px; border-radius:10px; background:linear-gradient(135deg, rgba(52,152,219,0.16), rgba(39,174,96,0.12)); border:1px solid rgba(52,152,219,0.22); color:#fff; font-weight:700; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .org-mode-banner.show { display:flex; }
+        .org-readonly-note { font-size:0.88rem; color:rgba(255,255,255,0.82); font-weight:600; }
+        .org-panel-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:15px; margin-top:15px; }
+        .org-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:15px; }
+        .org-card h4 { color:var(--primary-color); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+        .org-form-row { margin-bottom:12px; }
+        .org-form-row label { display:block; font-size:0.88rem; font-weight:700; color:var(--primary-color); margin-bottom:6px; }
+        .org-form-row input, .org-form-row select { width:100%; padding:10px 12px; border:1px solid var(--border-color); border-radius:7px; font-size:0.95rem; }
+        .org-list { max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+        .org-list-item { background:white; border:1px solid #e5e7eb; border-radius:9px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+        .org-list-item small { color:var(--light-text); display:block; }
+        .org-mini-btn { border:none; border-radius:6px; padding:7px 10px; cursor:pointer; background:var(--secondary-color); color:#fff; font-weight:700; font-size:0.82rem; }
+        .org-mini-btn.danger { background:var(--danger-color); }
+        .org-mini-btn.success { background:var(--success-color); }
+        .org-modal-wide { max-width:980px !important; }
+        .org-assignment-warning { background:#fff8e1; border-left:5px solid var(--warning-color); border-radius:10px; padding:14px 16px; margin-bottom:14px; color:#3b2f00; font-weight:600; }
+        .objective-owner-label { display:inline-flex; margin-left:8px; padding:3px 8px; border-radius:999px; background:rgba(52,152,219,0.12); color:var(--secondary-color); font-size:0.76rem; font-weight:800; vertical-align:middle; }
+        body.org-readonly .objective-edit-btn, body.org-readonly .objective-save-btn, body.org-readonly .objective-cancel-btn, body.org-readonly .objective-delete-btn, body.org-readonly .add-task-btn, body.org-readonly .progress-input-container, body.org-readonly #add-objective, body.org-readonly #save-progress, body.org-readonly #reset-progress { display:none !important; }
+
     </style>
 </head>
 <body>
@@ -2405,6 +2431,12 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // Expose Firebase handles for the Division / Unit upgrade layer.
+        // The main file uses const variables, so the extension needs safe window aliases.
+        window.app = app;
+        window.auth = auth;
+        window.db = db;
+
         // =========================
         // AUTHENTICATION FUNCTIONS
         // =========================
@@ -2573,7 +2605,11 @@
                     uid: user.uid,
                     name: userData.name,
                     email: userData.email,
-                    isAdmin: userData.isAdmin || false
+                    isAdmin: userData.isAdmin || false,
+                    division: userData.division || '',
+                    unit: userData.unit || '',
+                    role: userData.role || (userData.isAdmin ? 'systemAdmin' : 'employee'),
+                    profileCompleted: !!(userData.division && userData.unit)
                 };
                 
                 sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -2603,6 +2639,13 @@
                 // Show dashboard
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('dashboard-container').style.display = 'block';
+
+                // Force the organizational setup check immediately after login.
+                // Existing users without a division/unit will be prompted here.
+                if (window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
+                    setTimeout(() => window.NCA_ORG_UPGRADE.bootstrapOrgLayer(true), 150);
+                }
+
                 setTimeout(showDueNotesOnSignIn, 500);
                 
             } catch (error) {
@@ -5143,7 +5186,11 @@
                             uid: user.uid,
                             name: userData.name,
                             email: userData.email,
-                            isAdmin: userData.isAdmin || false
+                            isAdmin: userData.isAdmin || false,
+                            division: userData.division || '',
+                            unit: userData.unit || '',
+                            role: userData.role || (userData.isAdmin ? 'systemAdmin' : 'employee'),
+                            profileCompleted: !!(userData.division && userData.unit)
                         };
                         
                         sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -5170,6 +5217,12 @@
                         document.getElementById('dashboard-container').style.display = 'block';
                         
                         initializeDashboard(dashboardData);
+
+                        // Force the organizational setup check when an existing session is restored.
+                        // This ensures old accounts without division/unit are prompted every time.
+                        if (window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
+                            setTimeout(() => window.NCA_ORG_UPGRADE.bootstrapOrgLayer(true), 150);
+                        }
                         
                     } catch (error) {
                         console.error('Auth state change error:', error);
@@ -5201,6 +5254,133 @@ function checkUpcomingEmailReminders() {
 document.addEventListener('DOMContentLoaded', () => {
     checkUpcomingEmailReminders();
 });
+</script>
+
+
+<!-- Division / Unit Intelligence Upgrade -->
+<script>
+(function(){
+    'use strict';
+    const NCA_DIVISIONS = ['RIPS','Internal Audit','Administration','Legal','Engineering','IT','Cybersecurity','Protocol & Procurement','Consumer','Corporate','Regulatory Administration','Regional Operations','Human Resource','Finance','International Affairs','DG Secretariat','DDG-TO Secretariat','DDG-MO Secretariat'];
+    const DEFAULT_UNITS_BY_DIVISION = {'RIPS':['Innovation','Research','Data and Analytics','Strategy','Policy']};
+    const ROLE_LABELS = {employee:'Employee',unitLead:'Unit Lead',divisionalHead:'Divisional Head',systemAdmin:'System Administrator'};
+    let orgBootstrapped = false;
+    function safeId(value){ return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+    function getSessionUser(){ try { return JSON.parse(sessionStorage.getItem('currentUser') || '{}'); } catch(e){ return {}; } }
+    function setSessionUserPatch(patch){ sessionStorage.setItem('currentUser', JSON.stringify(Object.assign({}, getSessionUser(), patch))); }
+    function canManageOrg(profile){ return !!(profile && (profile.isAdmin || profile.role === 'systemAdmin' || profile.role === 'divisionalHead')); }
+    async function seedDefaultUnits(){
+        if (!window.db) return;
+        const batch = db.batch(); let writeCount = 0;
+        for (const division of Object.keys(DEFAULT_UNITS_BY_DIVISION)) {
+            for (const unitName of DEFAULT_UNITS_BY_DIVISION[division]) {
+                const id = safeId(division + '-' + unitName); const ref = db.collection('units').doc(id); const snap = await ref.get();
+                if (!snap.exists) { batch.set(ref,{id,name:unitName,division,divisionId:safeId(division),active:true,defaultUnit:true,createdAt:new Date().toISOString(),createdBy:'system-seed'}); writeCount++; }
+            }
+        }
+        if (writeCount) await batch.commit();
+    }
+    async function getCurrentProfile(){
+        const authUser = firebase.auth().currentUser; if (!authUser) return null;
+        const snap = await db.collection('users').doc(authUser.uid).get(); if (!snap.exists) return null;
+        const profile = Object.assign({uid:authUser.uid}, snap.data());
+        if (profile.isAdmin && !profile.role) profile.role = 'systemAdmin';
+        setSessionUserPatch({division:profile.division || '', unit:profile.unit || '', role:profile.role || (profile.isAdmin ? 'systemAdmin':'employee')});
+        return profile;
+    }
+    function htmlEscape(s){ return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+    function ensureOrgUI(){
+        if (orgBootstrapped) return; orgBootstrapped = true;
+        const headerLeft = document.querySelector('.header-left');
+        if (headerLeft && !document.getElementById('org-meta-panel')) {
+            const panel = document.createElement('div'); panel.id = 'org-meta-panel'; panel.className = 'org-meta-panel';
+            panel.innerHTML = '<span class="org-meta-badge"><i class="fas fa-building"></i><span id="divisionLabel">Division: Unassigned</span></span><span class="org-meta-badge"><i class="fas fa-users"></i><span id="unitLabel">Unit: Unassigned</span></span><span class="org-meta-badge"><i class="fas fa-user-shield"></i><span id="roleLabel">Role: Employee</span></span>';
+            const subtitle = headerLeft.querySelector('.subtitle'); if (subtitle) subtitle.insertAdjacentElement('afterend', panel); else headerLeft.appendChild(panel);
+        }
+        const container = document.querySelector('.container');
+        if (container && !document.getElementById('org-mode-banner')) {
+            const banner = document.createElement('div'); banner.id = 'org-mode-banner'; banner.className = 'org-mode-banner';
+            banner.innerHTML = '<div><i class="fas fa-layer-group"></i> <span id="org-mode-title">My Dashboard</span><div class="org-readonly-note" id="org-mode-subtitle">Personal objective view</div></div><button class="org-mini-btn" id="return-personal-dashboard"><i class="fas fa-user"></i> Return to My Dashboard</button>';
+            const stats = document.querySelector('.dashboard-stats'); if (stats) stats.insertAdjacentElement('beforebegin', banner); else container.prepend(banner);
+        }
+        const controls = document.querySelector('.view-controls') || document.querySelector('.controls');
+        if (controls && !document.getElementById('myDashboardBtn')) {
+            controls.insertAdjacentHTML('afterbegin','<button class="action-btn" id="myDashboardBtn"><i class="fas fa-user"></i> My Dashboard</button><button class="action-btn" id="registerOrgBtn"><i class="fas fa-id-card"></i> Register / Change Division & Unit</button><button class="action-btn" id="unitDashboardBtn"><i class="fas fa-users"></i> Unit Dashboard</button><button class="action-btn" id="divisionDashboardBtn"><i class="fas fa-sitemap"></i> Division Dashboard</button><button class="action-btn" id="organizationBtn"><i class="fas fa-building"></i> Organization Management</button>');
+        }
+        if (!document.getElementById('organization-modal')) {
+            document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="organization-modal"><div class="modal org-modal-wide"><h3><i class="fas fa-building"></i> Organization Management</h3><div class="org-panel-grid"><div class="org-card"><h4><i class="fas fa-layer-group"></i> Create / Manage Units</h4><div class="org-form-row"><label for="org-unit-division">Division</label><select id="org-unit-division"></select></div><div class="org-form-row"><label for="org-new-unit-name">New Unit Name</label><input id="org-new-unit-name" placeholder="e.g. Innovation"></div><button class="org-mini-btn success" id="org-create-unit"><i class="fas fa-plus"></i> Create Unit</button><hr style="margin:15px 0;border:none;border-top:1px solid #e5e7eb;"><div class="org-list" id="org-units-list"></div></div><div class="org-card"><h4><i class="fas fa-user-plus"></i> Assign Users</h4><div class="org-form-row"><label for="org-user-search">User</label><select id="org-user-search"></select></div><div class="org-form-row"><label for="org-assign-division">Division</label><select id="org-assign-division"></select></div><div class="org-form-row"><label for="org-assign-unit">Unit</label><select id="org-assign-unit"></select></div><div class="org-form-row"><label for="org-assign-role">Role</label><select id="org-assign-role"><option value="employee">Employee</option><option value="unitLead">Unit Lead</option><option value="divisionalHead">Divisional Head</option><option value="systemAdmin">System Administrator</option></select></div><button class="org-mini-btn" id="org-assign-user"><i class="fas fa-save"></i> Save Assignment</button></div><div class="org-card"><h4><i class="fas fa-users-cog"></i> Users Without Units</h4><div class="org-list" id="org-orphan-users"></div></div></div><div class="modal-buttons"><button class="modal-btn secondary" id="close-organization-modal">Close</button></div></div></div><div class="modal-overlay" id="org-assignment-modal"><div class="modal"><h3><i class="fas fa-id-badge"></i> Register / Change Division & Unit</h3><div class="org-assignment-warning">Select or update your division and unit. You can return to this form anytime using the Register / Change Division & Unit button on the dashboard.</div><div class="org-form-row"><label for="profile-division-select">Division</label><select id="profile-division-select"></select></div><div class="org-form-row"><label for="profile-unit-select">Unit</label><select id="profile-unit-select"></select></div><div class="org-form-row"><label for="profile-role-select">Role</label><select id="profile-role-select"><option value="employee">Employee</option><option value="unitLead">Unit Lead</option><option value="divisionalHead">Divisional Head</option></select></div><div class="org-form-row"><label for="profile-request-unit">Request / Create New Unit (optional)</label><input id="profile-request-unit" placeholder="Type unit name if it does not exist yet"></div><div class="modal-buttons"><button class="modal-btn secondary" id="close-profile-assignment">Cancel</button><button class="modal-btn primary" id="save-profile-assignment">Save Assignment</button></div></div></div>');
+        }
+        document.getElementById('myDashboardBtn')?.addEventListener('click', loadPersonalDashboard);
+        document.getElementById('registerOrgBtn')?.addEventListener('click', openProfileAssignmentModal);
+        document.getElementById('close-profile-assignment')?.addEventListener('click', () => document.getElementById('org-assignment-modal')?.classList.remove('show'));
+        document.getElementById('return-personal-dashboard')?.addEventListener('click', loadPersonalDashboard);
+        document.getElementById('unitDashboardBtn')?.addEventListener('click', loadUnitDashboard);
+        document.getElementById('divisionDashboardBtn')?.addEventListener('click', loadDivisionDashboard);
+        document.getElementById('organizationBtn')?.addEventListener('click', openOrganizationManagement);
+        document.getElementById('close-organization-modal')?.addEventListener('click', () => document.getElementById('organization-modal').classList.remove('show'));
+        document.getElementById('org-create-unit')?.addEventListener('click', createUnitFromModal);
+        document.getElementById('org-assign-user')?.addEventListener('click', assignUserFromModal);
+        document.getElementById('save-profile-assignment')?.addEventListener('click', saveProfileAssignment);
+        document.getElementById('org-unit-division')?.addEventListener('change', refreshOrgUnitsList);
+        document.getElementById('org-assign-division')?.addEventListener('change', () => populateUnitSelect('org-assign-unit', document.getElementById('org-assign-division').value));
+        document.getElementById('profile-division-select')?.addEventListener('change', () => populateUnitSelect('profile-unit-select', document.getElementById('profile-division-select').value));
+    }
+    function populateDivisionSelect(selectId, selected){ const select=document.getElementById(selectId); if(!select)return; select.innerHTML='<option value="">Select division</option>'+NCA_DIVISIONS.map(d=>'<option value="'+htmlEscape(d)+'" '+(d===selected?'selected':'')+'>'+htmlEscape(d)+'</option>').join(''); }
+    async function getUnitsForDivision(division){ if(!division)return[]; await seedDefaultUnits(); const snap=await db.collection('units').where('division','==',division).get(); const units=[]; snap.forEach(doc=>{const d=doc.data(); if(d.active!==false) units.push(Object.assign({docId:doc.id},d));}); return units.sort((a,b)=>String(a.name).localeCompare(String(b.name))); }
+    async function populateUnitSelect(selectId, division, selected){ const select=document.getElementById(selectId); if(!select)return; select.innerHTML='<option value="">Loading units...</option>'; const units=await getUnitsForDivision(division); if(!units.length){select.innerHTML='<option value="">No units created yet</option>'; return;} select.innerHTML='<option value="">Select unit</option>'+units.map(u=>'<option value="'+htmlEscape(u.name)+'" '+(u.name===selected?'selected':'')+'>'+htmlEscape(u.name)+'</option>').join(''); }
+    async function refreshOrgLabels(){ const profile=await getCurrentProfile(); if(!profile)return; const div=document.getElementById('divisionLabel'), unit=document.getElementById('unitLabel'), role=document.getElementById('roleLabel'); if(div)div.textContent='Division: '+(profile.division||'Unassigned'); if(unit)unit.textContent='Unit: '+(profile.unit||'Unassigned'); if(role)role.textContent='Role: '+(ROLE_LABELS[profile.role] || (profile.isAdmin?'System Administrator':'Employee')); const orgBtn=document.getElementById('organizationBtn'), divBtn=document.getElementById('divisionDashboardBtn'); if(orgBtn)orgBtn.style.display=canManageOrg(profile)?'flex':'none'; if(divBtn)divBtn.style.display=canManageOrg(profile)?'flex':'none'; }
+    async function openProfileAssignmentModal(){
+        ensureOrgUI();
+        const profile = await getCurrentProfile();
+        const selectedDivision = (profile && profile.division) ? profile.division : '';
+        const selectedUnit = (profile && profile.unit) ? profile.unit : '';
+        populateDivisionSelect('profile-division-select', selectedDivision);
+        await populateUnitSelect('profile-unit-select', selectedDivision || 'RIPS', selectedUnit);
+        const roleSelect = document.getElementById('profile-role-select');
+        if (roleSelect && profile && profile.role) roleSelect.value = profile.role;
+        const req = document.getElementById('profile-request-unit');
+        if (req) req.value = '';
+        document.getElementById('org-assignment-modal')?.classList.add('show');
+    }
+    async function maybeShowAssignmentGate(forcePrompt){
+        ensureOrgUI();
+        const profile=await getCurrentProfile();
+        if(!profile)return;
+        await refreshOrgLabels();
+        const needsSetup = !profile.division || !profile.unit;
+        if(needsSetup){
+            populateDivisionSelect('profile-division-select', profile.division || '');
+            await populateUnitSelect('profile-unit-select', profile.division || '', profile.unit || '');
+            const roleSelect = document.getElementById('profile-role-select');
+            if (roleSelect) roleSelect.value = profile.role || (profile.isAdmin?'systemAdmin':'employee');
+            const modal = document.getElementById('org-assignment-modal');
+            if (modal) modal.classList.add('show');
+        }
+    }
+    async function saveProfileAssignment(){ const authUser=firebase.auth().currentUser; if(!authUser)return; const division=document.getElementById('profile-division-select').value; let unit=document.getElementById('profile-unit-select').value; const requestedUnit=document.getElementById('profile-request-unit').value.trim(); const role=document.getElementById('profile-role-select').value || 'employee'; if(!division)return showNotification('Please select a division.'); if(requestedUnit){unit=requestedUnit; await upsertUnit(division,unit);} if(!unit)return showNotification('Please select or request a unit.'); await db.collection('users').doc(authUser.uid).set({division,divisionId:safeId(division),unit,unitId:safeId(division+'-'+unit),role,profileCompleted:true,orgUpdatedAt:new Date().toISOString()},{merge:true}); document.getElementById('org-assignment-modal').classList.remove('show'); await refreshOrgLabels(); showNotification('Organizational assignment saved.'); }
+    async function upsertUnit(division, unitName){ const id=safeId(division+'-'+unitName); await db.collection('units').doc(id).set({id,name:unitName,division,divisionId:safeId(division),active:true,createdAt:new Date().toISOString(),createdBy:firebase.auth().currentUser?.uid || 'unknown'},{merge:true}); return id; }
+    async function createUnitFromModal(){ const division=document.getElementById('org-unit-division').value; const name=document.getElementById('org-new-unit-name').value.trim(); if(!division || !name)return showNotification('Select a division and enter a unit name.'); await upsertUnit(division,name); document.getElementById('org-new-unit-name').value=''; await refreshOrgUnitsList(); await populateUnitSelect('org-assign-unit', document.getElementById('org-assign-division').value); showNotification('Unit created successfully.'); }
+    async function refreshOrgUnitsList(){ const division=document.getElementById('org-unit-division').value; const list=document.getElementById('org-units-list'); if(!list)return; const units=await getUnitsForDivision(division); if(!units.length){ list.innerHTML='<div class="org-list-item">No units yet.</div>'; return;} list.innerHTML=units.map(u=>'<div class="org-list-item"><div><strong>'+htmlEscape(u.name)+'</strong><small>'+htmlEscape(u.division)+'</small></div><button class="org-mini-btn danger" data-archive-unit="'+htmlEscape(u.docId)+'">Archive</button></div>').join(''); list.querySelectorAll('[data-archive-unit]').forEach(btn=>btn.addEventListener('click',async()=>{ await db.collection('units').doc(btn.getAttribute('data-archive-unit')).set({active:false,archivedAt:new Date().toISOString()},{merge:true}); await refreshOrgUnitsList(); showNotification('Unit archived.'); })); }
+    async function openOrganizationManagement(){ const profile=await getCurrentProfile(); if(!canManageOrg(profile)) return showNotification('Only Divisional Heads and System Admins can manage units.'); populateDivisionSelect('org-unit-division', profile.isAdmin?'RIPS':(profile.division||'RIPS')); populateDivisionSelect('org-assign-division', profile.isAdmin?'RIPS':(profile.division||'RIPS')); if(!profile.isAdmin && profile.division){ document.getElementById('org-unit-division').value=profile.division; document.getElementById('org-assign-division').value=profile.division;} await populateUnitSelect('org-assign-unit', document.getElementById('org-assign-division').value); await refreshUsersForAssignment(profile); await refreshOrgUnitsList(); await refreshOrphanUsers(); document.getElementById('organization-modal').classList.add('show'); }
+    async function refreshUsersForAssignment(profile){ const select=document.getElementById('org-user-search'); if(!select)return; select.innerHTML='<option>Loading users...</option>'; const snap=await db.collection('users').get(); const users=[]; snap.forEach(doc=>{const u=Object.assign({uid:doc.id},doc.data()); if(profile.isAdmin || !profile.division || u.division===profile.division || !u.division) users.push(u);}); users.sort((a,b)=>String(a.name||a.email).localeCompare(String(b.name||b.email))); select.innerHTML=users.map(u=>'<option value="'+u.uid+'">'+htmlEscape(u.name || u.email)+' — '+htmlEscape(u.division || 'Unassigned')+' / '+htmlEscape(u.unit || 'No unit')+'</option>').join(''); }
+    async function refreshOrphanUsers(){ const list=document.getElementById('org-orphan-users'); if(!list)return; const snap=await db.collection('users').get(); const orphan=[]; snap.forEach(doc=>{const u=Object.assign({uid:doc.id},doc.data()); if(!u.division || !u.unit) orphan.push(u);}); if(!orphan.length){list.innerHTML='<div class="org-list-item">No unassigned users.</div>'; return;} list.innerHTML=orphan.map(u=>'<div class="org-list-item"><div><strong>'+htmlEscape(u.name || 'Unnamed User')+'</strong><small>'+htmlEscape(u.email || '')+'</small></div><button class="org-mini-btn" data-pick-user="'+u.uid+'">Assign</button></div>').join(''); list.querySelectorAll('[data-pick-user]').forEach(btn=>btn.addEventListener('click',()=>{document.getElementById('org-user-search').value=btn.getAttribute('data-pick-user');})); }
+    async function assignUserFromModal(){ const uid=document.getElementById('org-user-search').value; const division=document.getElementById('org-assign-division').value; const unit=document.getElementById('org-assign-unit').value; const role=document.getElementById('org-assign-role').value || 'employee'; if(!uid || !division || !unit)return showNotification('Select a user, division, and unit.'); await db.collection('users').doc(uid).set({division,divisionId:safeId(division),unit,unitId:safeId(division+'-'+unit),role,profileCompleted:true,orgUpdatedAt:new Date().toISOString()},{merge:true}); await refreshUsersForAssignment(await getCurrentProfile()); await refreshOrphanUsers(); await refreshOrgLabels(); showNotification('User assignment updated.'); }
+    async function collectDashboardDocsForUsers(users){ const docs=[]; for(const u of users){ const dash=await db.collection('dashboards').doc(u.uid).get(); if(dash.exists){ const data=dash.data(); const arr=Array.isArray(data.objectivesData)?data.objectivesData:[]; arr.forEach((obj,idx)=>docs.push(Object.assign({},obj,{id:(u.name || u.email || 'User')+'-'+(obj.id || idx+1),originalId:obj.id,ownerName:u.name || u.email || 'Unknown User',ownerEmail:u.email || '',ownerUnit:u.unit || '',ownerDivision:u.division || ''}))); } } return docs; }
+    function setOrgMode(mode,title,subtitle){ const banner=document.getElementById('org-mode-banner'), t=document.getElementById('org-mode-title'), s=document.getElementById('org-mode-subtitle'); if(banner)banner.classList.toggle('show', mode !== 'personal'); if(t)t.textContent=title; if(s)s.textContent=subtitle; document.body.classList.toggle('org-readonly', mode !== 'personal'); }
+    async function loadPersonalDashboard(){ const authUser=firebase.auth().currentUser; if(!authUser)return; const dash=await db.collection('dashboards').doc(authUser.uid).get(); initializeDashboard(dash.exists ? dash.data() : null); setOrgMode('personal','My Dashboard','Personal objective view'); showNotification('Personal dashboard loaded.'); }
+    async function loadUnitDashboard(){ const profile=await getCurrentProfile(); if(!profile || !profile.division || !profile.unit)return showNotification('Please complete your division and unit assignment first.'); const snap=await db.collection('users').where('division','==',profile.division).where('unit','==',profile.unit).get(); const members=[]; snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data()))); const combined=await collectDashboardDocsForUsers(members); if(typeof objectivesData !== 'undefined') objectivesData=combined; window.objectivesData=combined; renderObjectives(); updateStats(); decorateOwnerLabels(); setOrgMode('unit',profile.unit+' Unit Dashboard',members.length+' member(s), '+combined.length+' combined objective(s)'); showNotification('Unit dashboard loaded.'); }
+    async function loadDivisionDashboard(){ const profile=await getCurrentProfile(); if(!canManageOrg(profile)) return showNotification('Only Divisional Heads and System Admins can view division-wide dashboards.'); const division=profile.isAdmin ? (profile.division || 'RIPS') : profile.division; if(!division)return showNotification('Assign yourself to a division first.'); const snap=await db.collection('users').where('division','==',division).get(); const members=[]; snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data()))); const combined=await collectDashboardDocsForUsers(members); if(typeof objectivesData !== 'undefined') objectivesData=combined; window.objectivesData=combined; renderObjectives(); updateStats(); decorateOwnerLabels(); setOrgMode('division',division+' Division Dashboard',members.length+' division member(s), '+combined.length+' combined objective(s)'); showNotification('Division dashboard loaded.'); }
+    function decorateOwnerLabels(){ const data=(typeof objectivesData !== 'undefined') ? objectivesData : (window.objectivesData || []); document.querySelectorAll('.objective-card').forEach(card=>{const id=card.getAttribute('data-objective-id'); const obj=data.find(o=>String(o.id)===String(id)); const title=card.querySelector('.objective-title'); if(obj && obj.ownerName && title && !title.querySelector('.objective-owner-label')) title.insertAdjacentHTML('beforeend',' <span class="objective-owner-label"><i class="fas fa-user"></i> '+htmlEscape(obj.ownerName)+(obj.ownerUnit ? ' • '+htmlEscape(obj.ownerUnit) : '')+'</span>');}); }
+    async function bootstrapOrgLayer(forcePrompt){ if(!window.firebase || !(window.db || (typeof db !== 'undefined')))return; ensureOrgUI(); try{ await seedDefaultUnits(); populateDivisionSelect('profile-division-select'); populateDivisionSelect('org-unit-division','RIPS'); populateDivisionSelect('org-assign-division','RIPS'); await refreshOrgLabels(); await maybeShowAssignmentGate(forcePrompt); }catch(err){ console.error('Organization layer bootstrap error:',err); } }
+    document.addEventListener('DOMContentLoaded',()=>{
+        const timer=setInterval(()=>{
+            const dashboardVisible=document.getElementById('dashboard-container') && document.getElementById('dashboard-container').style.display !== 'none';
+            if(dashboardVisible && window.firebase && firebase.auth().currentUser) bootstrapOrgLayer(false);
+        },1200);
+        setTimeout(()=>clearInterval(timer),30000);
+    });
+    window.NCA_ORG_UPGRADE={divisions:NCA_DIVISIONS,defaultUnits:DEFAULT_UNITS_BY_DIVISION,bootstrapOrgLayer,maybeShowAssignmentGate,loadPersonalDashboard,loadUnitDashboard,loadDivisionDashboard,openOrganizationManagement,openProfileAssignmentModal};
+})();
 </script>
 
 </body>
