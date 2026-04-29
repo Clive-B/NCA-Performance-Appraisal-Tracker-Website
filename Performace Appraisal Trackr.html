@@ -5383,5 +5383,810 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
+
+
+
+
+
+
+<!-- Final Bulletproof Register / Change Division & Unit Fix -->
+<script>
+(function(){
+  'use strict';
+
+  const NCA_DIVISIONS_FINAL = [
+    'RIPS','Internal Audit','Administration','Legal','Engineering','IT','Cybersecurity','Protocol & Procurement',
+    'Consumer','Corporate','Regulatory Administration','Regional Operations','Human Resource','Finance','International Affairs',
+    'DG Secretariat','DDG-TO Secretariat','DDG-MO Secretariat'
+  ];
+  const DEFAULT_UNITS_FINAL = {
+    'RIPS': ['Innovation','Research','Data and Analytics','Strategy','Policy']
+  };
+  const ROLE_LABELS_FINAL = {
+    employee: 'Employee',
+    unitLead: 'Unit Lead',
+    divisionalHead: 'Divisional Head',
+    systemAdmin: 'System Administrator'
+  };
+
+  let autoPromptShown = false;
+
+  function getDbFinal(){
+    try {
+      if (window.firebase && firebase.firestore) return firebase.firestore();
+    } catch(e) {}
+    return null;
+  }
+
+  function getAuthUserFinal(){
+    try {
+      return window.firebase && firebase.auth ? firebase.auth().currentUser : null;
+    } catch(e) {
+      return null;
+    }
+  }
+
+  function safeIdFinal(value){
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  }
+
+  function escFinal(value){
+    return String(value || '').replace(/[&<>'"]/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c];
+    });
+  }
+
+  function notifyFinal(message){
+    try {
+      if (typeof showNotification === 'function') {
+        showNotification(message);
+        return;
+      }
+    } catch(e) {}
+    alert(message);
+  }
+
+  function removeDuplicateRegisterButtonsFinal(){
+    const buttons = Array.from(document.querySelectorAll('button'))
+      .filter(btn => (btn.textContent || '').replace(/\s+/g,' ').trim().toLowerCase().includes('register / change division'));
+
+    if (!buttons.length) return null;
+
+    const keeper = buttons[0];
+    buttons.slice(1).forEach(btn => btn.remove());
+    keeper.id = 'registerOrgBtn';
+    keeper.type = 'button';
+    keeper.classList.add('action-btn');
+    keeper.setAttribute('data-open-org-profile', 'true');
+    keeper.onclick = function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      openOrgProfileModalFinal();
+      return false;
+    };
+    return keeper;
+  }
+
+  function ensureRegisterButtonFinal(){
+    let existing = removeDuplicateRegisterButtonsFinal();
+    if (existing) return existing;
+
+    const controls = document.querySelector('.view-controls') || document.querySelector('.controls');
+    if (!controls) return null;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'registerOrgBtn';
+    btn.className = 'action-btn';
+    btn.setAttribute('data-open-org-profile', 'true');
+    btn.innerHTML = '<i class="fas fa-id-card"></i> Register / Change Division & Unit';
+    btn.onclick = function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      openOrgProfileModalFinal();
+      return false;
+    };
+
+    const unitBtn = document.getElementById('unitDashboardBtn');
+    if (unitBtn && unitBtn.parentElement === controls) {
+      controls.insertBefore(btn, unitBtn);
+    } else {
+      controls.insertBefore(btn, controls.firstChild);
+    }
+    return btn;
+  }
+
+  function ensureOrgLabelsFinal(){
+    const headerLeft = document.querySelector('.header-left');
+    if (!headerLeft) return;
+    let panel = document.getElementById('org-meta-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'org-meta-panel';
+      panel.className = 'org-meta-panel';
+      panel.innerHTML = '<span class="org-meta-badge"><i class="fas fa-building"></i><span id="divisionLabel">Division: Unassigned</span></span><span class="org-meta-badge"><i class="fas fa-users"></i><span id="unitLabel">Unit: Unassigned</span></span><span class="org-meta-badge"><i class="fas fa-user-shield"></i><span id="roleLabel">Role: Employee</span></span>';
+      const subtitle = headerLeft.querySelector('.subtitle');
+      if (subtitle) subtitle.insertAdjacentElement('afterend', panel);
+      else headerLeft.appendChild(panel);
+    }
+  }
+
+  function ensureModalFinal(){
+    // Use a new unique modal ID so older broken modal code cannot interfere.
+    let modal = document.getElementById('nca-org-profile-modal');
+    if (modal) return modal;
+
+    const old = document.getElementById('org-assignment-modal');
+    if (old) old.remove();
+
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="modal-overlay" id="nca-org-profile-modal" style="z-index:5000;">
+        <div class="modal" style="max-width:640px;">
+          <h3><i class="fas fa-id-badge"></i> Register / Change Division & Unit</h3>
+          <div style="background:#fff8e1;border-left:4px solid #f39c12;padding:12px 14px;border-radius:8px;margin-bottom:18px;color:#2c3e50;">
+            Select your division and unit. You may return here later to change them.
+          </div>
+          <div class="form-group">
+            <label for="nca-profile-division">Division</label>
+            <select id="nca-profile-division"></select>
+          </div>
+          <div class="form-group">
+            <label for="nca-profile-unit">Unit</label>
+            <select id="nca-profile-unit"></select>
+            <small style="color:#64748b;display:block;margin-top:5px;">For divisions without existing units, type a new unit below.</small>
+          </div>
+          <div class="form-group">
+            <label for="nca-profile-new-unit">Create / Request New Unit (optional)</label>
+            <input id="nca-profile-new-unit" placeholder="Type a new unit name if it is not listed">
+          </div>
+          <div class="form-group">
+            <label for="nca-profile-role">Role</label>
+            <select id="nca-profile-role">
+              <option value="employee">Employee</option>
+              <option value="unitLead">Unit Lead</option>
+              <option value="divisionalHead">Divisional Head</option>
+            </select>
+          </div>
+          <div class="modal-buttons">
+            <button type="button" class="modal-btn secondary" id="nca-profile-cancel">Cancel</button>
+            <button type="button" class="modal-btn primary" id="nca-profile-save">Save Assignment</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    modal = document.getElementById('nca-org-profile-modal');
+    document.getElementById('nca-profile-cancel').onclick = function(){ closeOrgProfileModalFinal(); };
+    document.getElementById('nca-profile-save').onclick = function(event){ event.preventDefault(); saveOrgProfileFinal(); };
+    document.getElementById('nca-profile-division').onchange = function(){ populateUnitSelectFinal(this.value, ''); };
+    return modal;
+  }
+
+  async function seedDefaultUnitsFinal(){
+    const db = getDbFinal();
+    if (!db) return;
+    for (const division of Object.keys(DEFAULT_UNITS_FINAL)) {
+      for (const unitName of DEFAULT_UNITS_FINAL[division]) {
+        const id = safeIdFinal(division + '-' + unitName);
+        await db.collection('units').doc(id).set({
+          id: id,
+          name: unitName,
+          division: division,
+          divisionId: safeIdFinal(division),
+          active: true,
+          defaultUnit: true,
+          createdBy: 'system-seed',
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+    }
+  }
+
+  async function getProfileFinal(){
+    const db = getDbFinal();
+    const authUser = getAuthUserFinal();
+    if (!db || !authUser) return null;
+    const snap = await db.collection('users').doc(authUser.uid).get();
+    return snap.exists ? Object.assign({uid: authUser.uid, email: authUser.email || ''}, snap.data()) : {uid: authUser.uid, email: authUser.email || ''};
+  }
+
+  function populateDivisionSelectFinal(selected){
+    const select = document.getElementById('nca-profile-division');
+    if (!select) return;
+    select.innerHTML = '<option value="">Select division</option>' + NCA_DIVISIONS_FINAL.map(function(d){
+      return '<option value="'+escFinal(d)+'" '+(d === selected ? 'selected' : '')+'>'+escFinal(d)+'</option>';
+    }).join('');
+  }
+
+  async function getUnitsFinal(division){
+    if (!division) return [];
+    const db = getDbFinal();
+    if (!db) return [];
+    await seedDefaultUnitsFinal();
+    const snap = await db.collection('units').where('division','==',division).get();
+    const units = [];
+    snap.forEach(function(doc){
+      const data = doc.data() || {};
+      if (data.active !== false && data.name) units.push(data.name);
+    });
+    return Array.from(new Set(units)).sort();
+  }
+
+  async function populateUnitSelectFinal(division, selected){
+    const select = document.getElementById('nca-profile-unit');
+    if (!select) return;
+    select.innerHTML = '<option value="">Loading units...</option>';
+    const units = await getUnitsFinal(division);
+    if (!units.length) {
+      select.innerHTML = '<option value="">No units yet — type a new unit below</option>';
+      return;
+    }
+    select.innerHTML = '<option value="">Select unit</option>' + units.map(function(unit){
+      return '<option value="'+escFinal(unit)+'" '+(unit === selected ? 'selected' : '')+'>'+escFinal(unit)+'</option>';
+    }).join('');
+  }
+
+  async function openOrgProfileModalFinal(){
+    const authUser = getAuthUserFinal();
+    if (!authUser) {
+      notifyFinal('Please sign in first, then register your division and unit.');
+      return;
+    }
+    ensureOrgLabelsFinal();
+    ensureRegisterButtonFinal();
+    const modal = ensureModalFinal();
+    const profile = await getProfileFinal();
+    const division = profile && profile.division ? profile.division : '';
+    const unit = profile && profile.unit ? profile.unit : '';
+    const role = profile && profile.role ? profile.role : 'employee';
+    populateDivisionSelectFinal(division);
+    await populateUnitSelectFinal(division || 'RIPS', unit);
+    const roleSelect = document.getElementById('nca-profile-role');
+    if (roleSelect) roleSelect.value = role;
+    const newUnit = document.getElementById('nca-profile-new-unit');
+    if (newUnit) newUnit.value = '';
+    modal.classList.add('show');
+  }
+
+  function closeOrgProfileModalFinal(){
+    const modal = document.getElementById('nca-org-profile-modal');
+    if (modal) modal.classList.remove('show');
+  }
+
+  async function saveOrgProfileFinal(){
+    const db = getDbFinal();
+    const authUser = getAuthUserFinal();
+    if (!db || !authUser) {
+      notifyFinal('Please sign in before saving.');
+      return;
+    }
+
+    const division = document.getElementById('nca-profile-division')?.value || '';
+    let unit = document.getElementById('nca-profile-unit')?.value || '';
+    const newUnit = (document.getElementById('nca-profile-new-unit')?.value || '').trim();
+    const role = document.getElementById('nca-profile-role')?.value || 'employee';
+
+    if (!division) {
+      notifyFinal('Please select a division.');
+      return;
+    }
+    if (newUnit) unit = newUnit;
+    if (!unit) {
+      notifyFinal('Please select a unit or type a new unit name.');
+      return;
+    }
+
+    const unitId = safeIdFinal(division + '-' + unit);
+    if (newUnit) {
+      await db.collection('units').doc(unitId).set({
+        id: unitId,
+        name: unit,
+        division: division,
+        divisionId: safeIdFinal(division),
+        active: true,
+        createdBy: authUser.uid,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
+
+    await db.collection('users').doc(authUser.uid).set({
+      uid: authUser.uid,
+      email: authUser.email || '',
+      division: division,
+      divisionId: safeIdFinal(division),
+      unit: unit,
+      unitId: unitId,
+      role: role,
+      profileCompleted: true,
+      orgUpdatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    try {
+      const current = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+      sessionStorage.setItem('currentUser', JSON.stringify(Object.assign({}, current, {division, unit, role, profileCompleted:true})));
+    } catch(e) {}
+
+    updateOrgLabelsFinal({division, unit, role});
+    closeOrgProfileModalFinal();
+    notifyFinal('Division and unit saved successfully.');
+  }
+
+  function updateOrgLabelsFinal(profile){
+    ensureOrgLabelsFinal();
+    const divLabel = document.getElementById('divisionLabel');
+    const unitLabel = document.getElementById('unitLabel');
+    const roleLabel = document.getElementById('roleLabel');
+    if (divLabel) divLabel.textContent = 'Division: ' + (profile.division || 'Unassigned');
+    if (unitLabel) unitLabel.textContent = 'Unit: ' + (profile.unit || 'Unassigned');
+    if (roleLabel) roleLabel.textContent = 'Role: ' + (ROLE_LABELS_FINAL[profile.role] || 'Employee');
+  }
+
+  async function refreshLabelsFromFirestoreFinal(){
+    const authUser = getAuthUserFinal();
+    if (!authUser) return;
+    const profile = await getProfileFinal();
+    if (profile) updateOrgLabelsFinal(profile);
+  }
+
+  async function maybeAutoPromptFinal(){
+    if (autoPromptShown) return;
+    const authUser = getAuthUserFinal();
+    if (!authUser) return;
+    const profile = await getProfileFinal();
+    if (!profile || !profile.division || !profile.unit) {
+      autoPromptShown = true;
+      setTimeout(openOrgProfileModalFinal, 600);
+    }
+  }
+
+  function bindFinal(){
+    ensureOrgLabelsFinal();
+    ensureRegisterButtonFinal();
+    removeDuplicateRegisterButtonsFinal();
+    ensureModalFinal();
+
+    // Capture phase catches the button even if older scripts also attached broken handlers.
+    document.addEventListener('click', function(event){
+      const btn = event.target && event.target.closest ? event.target.closest('[data-open-org-profile="true"], #registerOrgBtn') : null;
+      if (btn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        openOrgProfileModalFinal();
+        return false;
+      }
+    }, true);
+
+    window.openProfileAssignmentModal = openOrgProfileModalFinal;
+    window.saveProfileAssignment = saveOrgProfileFinal;
+    window.NCA_ORG_PROFILE = {
+      open: openOrgProfileModalFinal,
+      save: saveOrgProfileFinal,
+      refreshLabels: refreshLabelsFromFirestoreFinal
+    };
+  }
+
+  function bootFinal(){
+    bindFinal();
+    refreshLabelsFromFirestoreFinal();
+    maybeAutoPromptFinal();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootFinal);
+  } else {
+    bootFinal();
+  }
+
+  let attempts = 0;
+  const interval = setInterval(function(){
+    attempts++;
+    ensureOrgLabelsFinal();
+    ensureRegisterButtonFinal();
+    removeDuplicateRegisterButtonsFinal();
+    refreshLabelsFromFirestoreFinal();
+    maybeAutoPromptFinal();
+    if (attempts > 25) clearInterval(interval);
+  }, 1000);
+})();
+</script>
+
+
+<!-- HARD FIX: Working Register / Change Division & Unit Button -->
+<script>
+(function(){
+  'use strict';
+
+  const HARD_DIVISIONS = [
+    'RIPS','Internal Audit','Administration','Legal','Engineering','IT','Cybersecurity','Protocol & Procurement',
+    'Consumer','Corporate','Regulatory Administration','Regional Operations','Human Resource','Finance','International Affairs',
+    'DG Secretariat','DDG-TO Secretariat','DDG-MO Secretariat'
+  ];
+
+  const HARD_DEFAULT_UNITS = {
+    'RIPS': ['Innovation','Research','Data and Analytics','Strategy','Policy']
+  };
+
+  function hardEsc(value){
+    return String(value || '').replace(/[&<>"']/g, function(ch){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]);
+    });
+  }
+
+  function hardDb(){
+    try {
+      if (window.firebase && firebase.firestore) return firebase.firestore();
+    } catch(e) {}
+    return null;
+  }
+
+  function hardUser(){
+    try {
+      if (window.firebase && firebase.auth) return firebase.auth().currentUser;
+    } catch(e) {}
+    return null;
+  }
+
+  function hardNotify(message){
+    try {
+      if (typeof showNotification === 'function') {
+        showNotification(message);
+        return;
+      }
+    } catch(e) {}
+    alert(message);
+  }
+
+  function hardGetStoredProfile(){
+    try {
+      const authUser = hardUser();
+      const key = authUser ? ('nca_org_profile_' + authUser.uid) : 'nca_org_profile_guest';
+      return JSON.parse(localStorage.getItem(key) || '{}');
+    } catch(e) {
+      return {};
+    }
+  }
+
+  function hardSetStoredProfile(profile){
+    try {
+      const authUser = hardUser();
+      const key = authUser ? ('nca_org_profile_' + authUser.uid) : 'nca_org_profile_guest';
+      localStorage.setItem(key, JSON.stringify(profile || {}));
+    } catch(e) {}
+  }
+
+  function hardCustomUnits(){
+    try {
+      return JSON.parse(localStorage.getItem('nca_custom_units_by_division') || '{}');
+    } catch(e) {
+      return {};
+    }
+  }
+
+  function hardSaveCustomUnit(division, unit){
+    const cleanDivision = String(division || '').trim();
+    const cleanUnit = String(unit || '').trim();
+    if (!cleanDivision || !cleanUnit) return;
+    const all = hardCustomUnits();
+    all[cleanDivision] = Array.from(new Set([...(all[cleanDivision] || []), cleanUnit]));
+    localStorage.setItem('nca_custom_units_by_division', JSON.stringify(all));
+  }
+
+  function hardUnitsForDivision(division){
+    const base = HARD_DEFAULT_UNITS[division] || [];
+    const extra = hardCustomUnits()[division] || [];
+    return Array.from(new Set([...base, ...extra])).sort(function(a,b){ return a.localeCompare(b); });
+  }
+
+  function hardEnsureModal(){
+    let modal = document.getElementById('nca-hard-org-modal');
+    if (modal) return modal;
+
+    const html = `
+      <div id="nca-hard-org-modal" style="display:none; position:fixed; inset:0; z-index:999999; background:rgba(0,0,0,0.62); align-items:center; justify-content:center; padding:20px;">
+        <div style="width:100%; max-width:680px; background:#fff; color:#1f2937; border-radius:16px; box-shadow:0 24px 80px rgba(0,0,0,0.35); padding:28px; max-height:90vh; overflow:auto;">
+          <h2 style="margin:0 0 10px 0; color:#2c3e50; font-size:1.45rem; display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-id-card"></i> Register / Change Division & Unit
+          </h2>
+          <div style="background:#fff8e1; border-left:5px solid #f39c12; padding:12px 14px; border-radius:10px; margin:14px 0 18px 0; font-weight:600;">
+            Select your division and unit. You can return here anytime to update your organizational setup.
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label for="nca-hard-division" style="display:block; font-weight:700; margin-bottom:6px;">Division</label>
+            <select id="nca-hard-division" style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem;"></select>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label for="nca-hard-unit" style="display:block; font-weight:700; margin-bottom:6px;">Unit</label>
+            <select id="nca-hard-unit" style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem;"></select>
+            <small style="display:block; margin-top:5px; color:#64748b;">If your unit is not listed, type it below.</small>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label for="nca-hard-new-unit" style="display:block; font-weight:700; margin-bottom:6px;">Create / Request New Unit</label>
+            <input id="nca-hard-new-unit" type="text" placeholder="Example: Monitoring Unit" style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem;">
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label for="nca-hard-role" style="display:block; font-weight:700; margin-bottom:6px;">Role</label>
+            <select id="nca-hard-role" style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem;">
+              <option value="employee">Employee</option>
+              <option value="unitLead">Unit Lead</option>
+              <option value="divisionalHead">Divisional Head</option>
+            </select>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap; margin-top:22px;">
+            <button type="button" id="nca-hard-cancel" style="padding:11px 18px; border:none; border-radius:8px; background:#e5e7eb; color:#111827; font-weight:700; cursor:pointer;">Cancel</button>
+            <button type="button" id="nca-hard-save" style="padding:11px 18px; border:none; border-radius:8px; background:#3498db; color:#fff; font-weight:700; cursor:pointer;">Save Division & Unit</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    modal = document.getElementById('nca-hard-org-modal');
+
+    document.getElementById('nca-hard-cancel').onclick = function(){ hardCloseModal(); };
+    document.getElementById('nca-hard-save').onclick = function(){ hardSaveProfile(); };
+    document.getElementById('nca-hard-division').onchange = function(){ hardPopulateUnits(this.value, ''); };
+    modal.addEventListener('click', function(e){
+      if (e.target === modal) hardCloseModal();
+    });
+
+    return modal;
+  }
+
+  function hardPopulateDivisions(selected){
+    const sel = document.getElementById('nca-hard-division');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select division</option>' + HARD_DIVISIONS.map(function(d){
+      return '<option value="'+hardEsc(d)+'" '+(d === selected ? 'selected' : '')+'>'+hardEsc(d)+'</option>';
+    }).join('');
+  }
+
+  function hardPopulateUnits(division, selected){
+    const sel = document.getElementById('nca-hard-unit');
+    if (!sel) return;
+    const units = hardUnitsForDivision(division);
+    if (!division) {
+      sel.innerHTML = '<option value="">Select division first</option>';
+      return;
+    }
+    if (!units.length) {
+      sel.innerHTML = '<option value="">No unit listed yet — type new unit below</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Select unit</option>' + units.map(function(u){
+      return '<option value="'+hardEsc(u)+'" '+(u === selected ? 'selected' : '')+'>'+hardEsc(u)+'</option>';
+    }).join('');
+  }
+
+  async function hardLoadProfile(){
+    const local = hardGetStoredProfile();
+    const authUser = hardUser();
+    const db = hardDb();
+    if (authUser && db) {
+      try {
+        const snap = await db.collection('users').doc(authUser.uid).get();
+        if (snap.exists) {
+          return Object.assign({}, local, snap.data() || {});
+        }
+      } catch(e) {
+        console.warn('Could not read user profile from Firestore:', e);
+      }
+    }
+    return local || {};
+  }
+
+  async function hardOpenModal(event){
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    }
+
+    const modal = hardEnsureModal();
+    const profile = await hardLoadProfile();
+    const division = profile.division || profile.divisionId || '';
+    const unit = profile.unit || profile.unitId || '';
+    const role = profile.role || 'employee';
+
+    hardPopulateDivisions(division);
+    hardPopulateUnits(division || 'RIPS', unit);
+    const roleEl = document.getElementById('nca-hard-role');
+    const newUnitEl = document.getElementById('nca-hard-new-unit');
+    if (roleEl) roleEl.value = role;
+    if (newUnitEl) newUnitEl.value = '';
+
+    modal.style.display = 'flex';
+    setTimeout(function(){
+      const divSel = document.getElementById('nca-hard-division');
+      if (divSel) divSel.focus();
+    }, 50);
+
+    return false;
+  }
+
+  function hardCloseModal(){
+    const modal = document.getElementById('nca-hard-org-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function hardUpdateLabels(profile){
+    const division = profile.division || 'Unassigned';
+    const unit = profile.unit || 'Unassigned';
+    const roleText = ({employee:'Employee', unitLead:'Unit Lead', divisionalHead:'Divisional Head', systemAdmin:'System Administrator'}[profile.role] || profile.role || 'Employee');
+
+    const divisionLabel = document.getElementById('divisionLabel') || document.getElementById('org-division-label');
+    const unitLabel = document.getElementById('unitLabel') || document.getElementById('org-unit-label');
+    const roleLabel = document.getElementById('roleLabel') || document.getElementById('org-role-label');
+
+    if (divisionLabel) divisionLabel.innerHTML = '<i class="fas fa-building"></i> Division: ' + hardEsc(division);
+    if (unitLabel) unitLabel.innerHTML = '<i class="fas fa-users"></i> Unit: ' + hardEsc(unit);
+    if (roleLabel) roleLabel.innerHTML = '<i class="fas fa-user-shield"></i> Role: ' + hardEsc(roleText);
+
+    // Also update any badges by visible text if the above ids differ.
+    Array.from(document.querySelectorAll('.org-meta-badge')).forEach(function(el){
+      const txt = (el.textContent || '').toLowerCase();
+      if (txt.includes('division')) el.innerHTML = '<i class="fas fa-building"></i> Division: ' + hardEsc(division);
+      if (txt.includes('unit')) el.innerHTML = '<i class="fas fa-users"></i> Unit: ' + hardEsc(unit);
+      if (txt.includes('role')) el.innerHTML = '<i class="fas fa-user-shield"></i> Role: ' + hardEsc(roleText);
+    });
+  }
+
+  async function hardSaveProfile(){
+    const division = (document.getElementById('nca-hard-division') || {}).value || '';
+    let unit = (document.getElementById('nca-hard-unit') || {}).value || '';
+    const newUnit = ((document.getElementById('nca-hard-new-unit') || {}).value || '').trim();
+    const role = (document.getElementById('nca-hard-role') || {}).value || 'employee';
+
+    if (!division) {
+      hardNotify('Please select your division.');
+      return;
+    }
+
+    if (newUnit) {
+      unit = newUnit;
+      hardSaveCustomUnit(division, unit);
+    }
+
+    if (!unit) {
+      hardNotify('Please select or create your unit.');
+      return;
+    }
+
+    const profile = {
+      division: division,
+      divisionId: division,
+      unit: unit,
+      unitId: unit,
+      role: role,
+      profileCompleted: true,
+      orgUpdatedAt: new Date().toISOString()
+    };
+
+    hardSetStoredProfile(profile);
+    hardUpdateLabels(profile);
+
+    const authUser = hardUser();
+    const db = hardDb();
+
+    if (authUser && db) {
+      try {
+        await db.collection('users').doc(authUser.uid).set(Object.assign({
+          email: authUser.email || '',
+          uid: authUser.uid
+        }, profile), { merge: true });
+
+        await db.collection('units').doc(division.replace(/[^a-zA-Z0-9]/g,'_') + '_' + unit.replace(/[^a-zA-Z0-9]/g,'_')).set({
+          id: division + '|' + unit,
+          name: unit,
+          unit: unit,
+          division: division,
+          divisionId: division,
+          active: true,
+          updatedAt: new Date().toISOString(),
+          createdBy: authUser.uid
+        }, { merge: true });
+      } catch(e) {
+        console.error('Firestore save failed:', e);
+        hardNotify('Saved locally, but Firestore rejected the save. Check your Firestore rules.');
+        hardCloseModal();
+        return;
+      }
+    }
+
+    hardCloseModal();
+    hardNotify('Division and unit saved successfully.');
+  }
+
+  function hardRemoveDuplicateButtons(){
+    const matches = Array.from(document.querySelectorAll('button')).filter(function(btn){
+      return (btn.textContent || '').replace(/\s+/g,' ').trim().toLowerCase().includes('register / change division');
+    });
+    matches.forEach(function(btn){
+      if (btn.id !== 'nca-hard-register-btn') btn.remove();
+    });
+  }
+
+  function hardEnsureButton(){
+    hardRemoveDuplicateButtons();
+
+    let btn = document.getElementById('nca-hard-register-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'nca-hard-register-btn';
+      btn.className = 'action-btn';
+      btn.innerHTML = '<i class="fas fa-id-card"></i> Register / Change Division & Unit';
+
+      const controls = document.querySelector('.view-controls') || document.querySelector('.controls');
+      if (controls) {
+        const unitBtn = document.getElementById('unitDashboardBtn');
+        if (unitBtn && unitBtn.parentElement === controls) controls.insertBefore(btn, unitBtn);
+        else controls.insertBefore(btn, controls.firstChild);
+      }
+    }
+
+    btn.setAttribute('onclick', 'return window.NCA_openDivisionUnitRegistration(event);');
+    btn.onclick = hardOpenModal;
+    btn.onpointerdown = function(e){ e.stopPropagation(); };
+    return btn;
+  }
+
+  function hardEnsureLabelsExist(){
+    const headerLeft = document.querySelector('.header-left');
+    if (!headerLeft) return;
+    let panel = document.getElementById('nca-hard-org-meta-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'nca-hard-org-meta-panel';
+      panel.className = 'org-meta-panel';
+      panel.innerHTML = `
+        <span class="org-meta-badge" id="org-division-label"><i class="fas fa-building"></i> Division: Unassigned</span>
+        <span class="org-meta-badge" id="org-unit-label"><i class="fas fa-users"></i> Unit: Unassigned</span>
+        <span class="org-meta-badge" id="org-role-label"><i class="fas fa-user-shield"></i> Role: Employee</span>
+      `;
+      const subtitle = headerLeft.querySelector('.subtitle');
+      if (subtitle) subtitle.insertAdjacentElement('afterend', panel);
+      else headerLeft.appendChild(panel);
+    }
+  }
+
+  async function hardRefreshLabels(){
+    hardEnsureLabelsExist();
+    const profile = await hardLoadProfile();
+    hardUpdateLabels(profile || {});
+  }
+
+  function hardBoot(){
+    window.NCA_openDivisionUnitRegistration = hardOpenModal;
+    window.NCA_saveDivisionUnitRegistration = hardSaveProfile;
+
+    hardEnsureModal();
+    hardEnsureLabelsExist();
+    hardEnsureButton();
+    hardRefreshLabels();
+
+    document.addEventListener('click', function(e){
+      const target = e.target && e.target.closest ? e.target.closest('#nca-hard-register-btn') : null;
+      if (target) return hardOpenModal(e);
+    }, true);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hardBoot);
+  else hardBoot();
+
+  let hardAttempts = 0;
+  const hardInterval = setInterval(function(){
+    hardAttempts++;
+    hardEnsureLabelsExist();
+    hardEnsureButton();
+    hardRefreshLabels();
+    if (hardAttempts > 90) clearInterval(hardInterval);
+  }, 1000);
+})();
+</script>
+
 </body>
 </html>
