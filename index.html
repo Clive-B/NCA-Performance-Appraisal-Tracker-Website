@@ -2599,17 +2599,19 @@
                 }
                 
                 const userData = userDoc.data();
+                const userEmail = (userData.email || user.email || '').toLowerCase();
+                const isPrimaryAdmin = userEmail === ADMIN_EMAIL.toLowerCase();
                 
                 // Set current user in session storage
                 const currentUser = {
                     uid: user.uid,
                     name: userData.name,
-                    email: userData.email,
-                    isAdmin: userData.isAdmin || false,
-                    division: userData.division || '',
-                    unit: userData.unit || '',
-                    role: userData.role || (userData.isAdmin ? 'systemAdmin' : 'employee'),
-                    profileCompleted: !!(userData.division && userData.unit)
+                    email: userEmail,
+                    isAdmin: isPrimaryAdmin || userData.isAdmin || false,
+                    division: isPrimaryAdmin ? '' : (userData.division || ''),
+                    unit: isPrimaryAdmin ? '' : (userData.unit || ''),
+                    role: isPrimaryAdmin ? 'systemAdmin' : (userData.role || (userData.isAdmin ? 'systemAdmin' : 'employee')),
+                    profileCompleted: isPrimaryAdmin || !!(userData.division && userData.unit)
                 };
                 
                 sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -2642,8 +2644,10 @@
 
                 // Force the organizational setup check immediately after login.
                 // Existing users without a division/unit will be prompted here.
-                if (window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
+                if (!isPrimaryAdmin && window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
                     setTimeout(() => window.NCA_ORG_UPGRADE.bootstrapOrgLayer(true), 150);
+                } else if (isPrimaryAdmin && window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
+                    setTimeout(() => window.NCA_ORG_UPGRADE.bootstrapOrgLayer(false), 150);
                 }
 
                 setTimeout(showDueNotesOnSignIn, 500);
@@ -4425,6 +4429,16 @@
                 pre.style.whiteSpace = 'pre-wrap';
                 pre.style.padding = '20px';
                 container.appendChild(pre);
+            } else if (fileName.match(/\.(html|htm)$/i)) {
+                // HTML file preview
+                const iframe = document.createElement('iframe');
+                iframe.srcdoc = atob(fileData.split(',')[1]);
+                iframe.className = 'file-preview';
+                iframe.style.width = '100%';
+                iframe.style.height = '60vh';
+                iframe.style.border = '1px solid #e0e0e0';
+                iframe.style.borderRadius = '8px';
+                container.appendChild(iframe);
             } else {
                 // Unsupported file type
                 container.innerHTML = `
@@ -5189,16 +5203,18 @@
                         }
                         
                         const userData = userDoc.data();
+                        const userEmail = (userData.email || user.email || '').toLowerCase();
+                        const isPrimaryAdmin = userEmail === ADMIN_EMAIL.toLowerCase();
                         
                         const currentUser = {
                             uid: user.uid,
                             name: userData.name,
-                            email: userData.email,
-                            isAdmin: userData.isAdmin || false,
-                            division: userData.division || '',
-                            unit: userData.unit || '',
-                            role: userData.role || (userData.isAdmin ? 'systemAdmin' : 'employee'),
-                            profileCompleted: !!(userData.division && userData.unit)
+                            email: userEmail,
+                            isAdmin: isPrimaryAdmin || userData.isAdmin || false,
+                            division: isPrimaryAdmin ? '' : (userData.division || ''),
+                            unit: isPrimaryAdmin ? '' : (userData.unit || ''),
+                            role: isPrimaryAdmin ? 'systemAdmin' : (userData.role || (userData.isAdmin ? 'systemAdmin' : 'employee')),
+                            profileCompleted: isPrimaryAdmin || !!(userData.division && userData.unit)
                         };
                         
                         sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -5228,8 +5244,10 @@
 
                         // Force the organizational setup check when an existing session is restored.
                         // This ensures old accounts without division/unit are prompted every time.
-                        if (window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
+                        if (!isPrimaryAdmin && window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
                             setTimeout(() => window.NCA_ORG_UPGRADE.bootstrapOrgLayer(true), 150);
+                        } else if (isPrimaryAdmin && window.NCA_ORG_UPGRADE && typeof window.NCA_ORG_UPGRADE.bootstrapOrgLayer === 'function') {
+                            setTimeout(() => window.NCA_ORG_UPGRADE.bootstrapOrgLayer(false), 150);
                         }
                         
                     } catch (error) {
@@ -5292,8 +5310,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const authUser = firebase.auth().currentUser; if (!authUser) return null;
         const snap = await db.collection('users').doc(authUser.uid).get(); if (!snap.exists) return null;
         const profile = Object.assign({uid:authUser.uid}, snap.data());
-        if (profile.isAdmin && !profile.role) profile.role = 'systemAdmin';
-        setSessionUserPatch({division:profile.division || '', unit:profile.unit || '', role:profile.role || (profile.isAdmin ? 'systemAdmin':'employee')});
+        const email = String(profile.email || authUser.email || '').toLowerCase();
+        const isPrimaryAdmin = email === 'admin@nca.gov';
+        if (isPrimaryAdmin) {
+            profile.email = email;
+            profile.isAdmin = true;
+            profile.role = 'systemAdmin';
+            profile.division = '';
+            profile.unit = '';
+            profile.divisionId = '';
+            profile.unitId = '';
+            profile.profileCompleted = true;
+        } else if (profile.isAdmin && !profile.role) profile.role = 'systemAdmin';
+        setSessionUserPatch({division:profile.division || '', unit:profile.unit || '', role:profile.role || (profile.isAdmin ? 'systemAdmin':'employee'), isAdmin:!!profile.isAdmin, profileCompleted:!!profile.profileCompleted});
         return profile;
     }
     function htmlEscape(s){ return String(s || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
@@ -5336,10 +5365,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateDivisionSelect(selectId, selected){ const select=document.getElementById(selectId); if(!select)return; select.innerHTML='<option value="">Select division</option>'+NCA_DIVISIONS.map(d=>'<option value="'+htmlEscape(d)+'" '+(d===selected?'selected':'')+'>'+htmlEscape(d)+'</option>').join(''); }
     async function getUnitsForDivision(division){ if(!division)return[]; await seedDefaultUnits(); const snap=await db.collection('units').where('division','==',division).get(); const units=[]; snap.forEach(doc=>{const d=doc.data(); if(d.active!==false) units.push(Object.assign({docId:doc.id},d));}); return units.sort((a,b)=>String(a.name).localeCompare(String(b.name))); }
     async function populateUnitSelect(selectId, division, selected){ const select=document.getElementById(selectId); if(!select)return; select.innerHTML='<option value="">Loading units...</option>'; const units=await getUnitsForDivision(division); if(!units.length){select.innerHTML='<option value="">No units created yet</option>'; return;} select.innerHTML='<option value="">Select unit</option>'+units.map(u=>'<option value="'+htmlEscape(u.name)+'" '+(u.name===selected?'selected':'')+'>'+htmlEscape(u.name)+'</option>').join(''); }
-    async function refreshOrgLabels(){ const profile=await getCurrentProfile(); if(!profile)return; const div=document.getElementById('divisionLabel'), unit=document.getElementById('unitLabel'), role=document.getElementById('roleLabel'); if(div)div.textContent='Division: '+(profile.division||'Unassigned'); if(unit)unit.textContent='Unit: '+(profile.unit||'Unassigned'); if(role)role.textContent='Role: '+(ROLE_LABELS[profile.role] || (profile.isAdmin?'System Administrator':'Employee')); const orgBtn=document.getElementById('organizationBtn'), divBtn=document.getElementById('divisionDashboardBtn'); if(orgBtn)orgBtn.style.display=canManageOrg(profile)?'flex':'none'; if(divBtn)divBtn.style.display=canManageOrg(profile)?'flex':'none'; }
+    async function refreshOrgLabels(){ const profile=await getCurrentProfile(); if(!profile)return; const div=document.getElementById('divisionLabel'), unit=document.getElementById('unitLabel'), role=document.getElementById('roleLabel'); const isPrimaryAdmin=String(profile.email || '').toLowerCase()==='admin@nca.gov'; if(div)div.textContent='Division: '+(isPrimaryAdmin?'All Divisions':(profile.division||'Unassigned')); if(unit)unit.textContent='Unit: '+(isPrimaryAdmin?'All Units':(profile.unit||'Unassigned')); if(role)role.textContent='Role: '+(ROLE_LABELS[profile.role] || (profile.isAdmin?'System Administrator':'Employee')); const orgBtn=document.getElementById('organizationBtn'), divBtn=document.getElementById('divisionDashboardBtn'), regBtn=document.getElementById('registerOrgBtn'); if(orgBtn)orgBtn.style.display=canManageOrg(profile)?'flex':'none'; if(divBtn)divBtn.style.display=canManageOrg(profile)?'flex':'none'; if(regBtn)regBtn.style.display=isPrimaryAdmin?'none':'flex'; }
     async function openProfileAssignmentModal(){
         ensureOrgUI();
         const profile = await getCurrentProfile();
+        if (profile && String(profile.email || '').toLowerCase() === 'admin@nca.gov') {
+            showNotification('Admin account has organization-wide access and does not need division/unit assignment.');
+            return;
+        }
         const selectedDivision = (profile && profile.division) ? profile.division : '';
         const selectedUnit = (profile && profile.unit) ? profile.unit : '';
         populateDivisionSelect('profile-division-select', selectedDivision);
@@ -5355,6 +5388,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const profile=await getCurrentProfile();
         if(!profile)return;
         await refreshOrgLabels();
+        if (String(profile.email || '').toLowerCase() === 'admin@nca.gov') {
+            const modal = document.getElementById('org-assignment-modal');
+            if (modal) modal.classList.remove('show');
+            return;
+        }
         const needsSetup = !profile.division || !profile.unit;
         if(needsSetup){
             populateDivisionSelect('profile-division-select', profile.division || '');
@@ -5505,10 +5543,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadDivisionDashboard(){
         const profile=await getCurrentProfile();
         if(!canManageOrg(profile)) return showNotification('Only Divisional Heads and System Admins can view division-wide dashboards.');
-        const division=profile.isAdmin ? (profile.division || 'RIPS') : profile.division;
-        if(!division)return showNotification('Assign yourself to a division first.');
+        const isPrimaryAdmin = String(profile.email || '').toLowerCase() === 'admin@nca.gov';
+        const division=profile.isAdmin ? (profile.division || '') : profile.division;
+        if(!division && !isPrimaryAdmin)return showNotification('Assign yourself to a division first.');
         try{
-            const snap=await db.collection('users').where('division','==',division).get();
+            const snap=isPrimaryAdmin ? await db.collection('users').get() : await db.collection('users').where('division','==',division).get();
             const members=[];
             snap.forEach(doc=>members.push(Object.assign({uid:doc.id},doc.data())));
             const combinedRaw=await collectDashboardDocsForUsers(members);
@@ -5537,7 +5576,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    async function bootstrapOrgLayer(forcePrompt){ if(!window.firebase || !(window.db || (typeof db !== 'undefined')))return; ensureOrgUI(); try{ await seedDefaultUnits(); populateDivisionSelect('profile-division-select'); populateDivisionSelect('org-unit-division','RIPS'); populateDivisionSelect('org-assign-division','RIPS'); await refreshOrgLabels(); await maybeShowAssignmentGate(forcePrompt); }catch(err){ console.error('Organization layer bootstrap error:',err); } }
+    async function bootstrapOrgLayer(forcePrompt){ if(!window.firebase || !(window.db || (typeof db !== 'undefined')))return; ensureOrgUI(); try{ const profile=await getCurrentProfile(); const isPrimaryAdmin=profile && String(profile.email || '').toLowerCase()==='admin@nca.gov'; await seedDefaultUnits(); populateDivisionSelect('profile-division-select'); populateDivisionSelect('org-unit-division','RIPS'); populateDivisionSelect('org-assign-division','RIPS'); await refreshOrgLabels(); if(!isPrimaryAdmin) await maybeShowAssignmentGate(forcePrompt); else { const modal=document.getElementById('org-assignment-modal'); if(modal) modal.classList.remove('show'); } }catch(err){ console.error('Organization layer bootstrap error:',err); } }
     document.addEventListener('DOMContentLoaded',()=>{
         const timer=setInterval(()=>{
             const dashboardVisible=document.getElementById('dashboard-container') && document.getElementById('dashboard-container').style.display !== 'none';
@@ -5592,6 +5631,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function isPrimaryAdminFinal(){
+    const user = getAuthUserFinal();
+    if (user && String(user.email || '').toLowerCase() === 'admin@nca.gov') return true;
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+      return String(stored.email || '').toLowerCase() === 'admin@nca.gov';
+    } catch(e) { return false; }
+  }
+
   function safeIdFinal(value){
     return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   }
@@ -5634,6 +5682,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function ensureRegisterButtonFinal(){
+    if (isPrimaryAdminFinal()) {
+      const existingAdminBtn = removeDuplicateRegisterButtonsFinal();
+      if (existingAdminBtn) existingAdminBtn.style.display = 'none';
+      return existingAdminBtn;
+    }
     let existing = removeDuplicateRegisterButtonsFinal();
     if (existing) return existing;
 
@@ -5753,7 +5806,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const authUser = getAuthUserFinal();
     if (!db || !authUser) return null;
     const snap = await db.collection('users').doc(authUser.uid).get();
-    return snap.exists ? Object.assign({uid: authUser.uid, email: authUser.email || ''}, snap.data()) : {uid: authUser.uid, email: authUser.email || ''};
+    const profile = snap.exists ? Object.assign({uid: authUser.uid, email: authUser.email || ''}, snap.data()) : {uid: authUser.uid, email: authUser.email || ''};
+    const email = String(profile.email || authUser.email || '').toLowerCase();
+    if (email === 'admin@nca.gov') {
+      profile.email = email;
+      profile.isAdmin = true;
+      profile.role = 'systemAdmin';
+      profile.division = '';
+      profile.unit = '';
+      profile.profileCompleted = true;
+    }
+    return profile;
   }
 
   function populateDivisionSelectFinal(selected){
@@ -5793,6 +5856,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function openOrgProfileModalFinal(){
+    if (isPrimaryAdminFinal()) {
+      notifyFinal('Admin account has organization-wide access and does not need division/unit assignment.');
+      return false;
+    }
     const authUser = getAuthUserFinal();
     if (!authUser) {
       notifyFinal('Please sign in first, then register your division and unit.');
@@ -5882,9 +5949,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const divLabel = document.getElementById('divisionLabel');
     const unitLabel = document.getElementById('unitLabel');
     const roleLabel = document.getElementById('roleLabel');
-    if (divLabel) divLabel.textContent = 'Division: ' + (profile.division || 'Unassigned');
-    if (unitLabel) unitLabel.textContent = 'Unit: ' + (profile.unit || 'Unassigned');
-    if (roleLabel) roleLabel.textContent = 'Role: ' + (ROLE_LABELS_FINAL[profile.role] || 'Employee');
+    const isPrimaryAdmin = isPrimaryAdminFinal() || String((profile && profile.email) || '').toLowerCase() === 'admin@nca.gov';
+    if (divLabel) divLabel.textContent = 'Division: ' + (isPrimaryAdmin ? 'All Divisions' : (profile.division || 'Unassigned'));
+    if (unitLabel) unitLabel.textContent = 'Unit: ' + (isPrimaryAdmin ? 'All Units' : (profile.unit || 'Unassigned'));
+    if (roleLabel) roleLabel.textContent = 'Role: ' + (ROLE_LABELS_FINAL[profile.role] || (isPrimaryAdmin ? 'System Administrator' : 'Employee'));
   }
 
   async function refreshLabelsFromFirestoreFinal(){
@@ -5898,6 +5966,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (autoPromptShown) return;
     const authUser = getAuthUserFinal();
     if (!authUser) return;
+    if (isPrimaryAdminFinal()) return;
     const profile = await getProfileFinal();
     if (!profile || !profile.division || !profile.unit) {
       autoPromptShown = true;
@@ -5991,6 +6060,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.firebase && firebase.auth) return firebase.auth().currentUser;
     } catch(e) {}
     return null;
+  }
+
+  function hardIsPrimaryAdmin(){
+    const user = hardUser();
+    if (user && String(user.email || '').toLowerCase() === 'admin@nca.gov') return true;
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+      return String(stored.email || '').toLowerCase() === 'admin@nca.gov';
+    } catch(e) { return false; }
   }
 
   function hardNotify(message){
@@ -6145,6 +6223,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function hardOpenModal(event){
+    if (hardIsPrimaryAdmin()) {
+      hardNotify('Admin account has organization-wide access and does not need division/unit assignment.');
+      return false;
+    }
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -6179,8 +6261,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function hardUpdateLabels(profile){
-    const division = profile.division || 'Unassigned';
-    const unit = profile.unit || 'Unassigned';
+    const isPrimaryAdmin = hardIsPrimaryAdmin() || String((profile && profile.email) || '').toLowerCase() === 'admin@nca.gov';
+    const division = isPrimaryAdmin ? 'All Divisions' : (profile.division || 'Unassigned');
+    const unit = isPrimaryAdmin ? 'All Units' : (profile.unit || 'Unassigned');
     const roleText = ({employee:'Employee', unitLead:'Unit Lead', divisionalHead:'Divisional Head', systemAdmin:'System Administrator'}[profile.role] || profile.role || 'Employee');
 
     const divisionLabel = document.getElementById('divisionLabel') || document.getElementById('org-division-label');
@@ -6277,6 +6360,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function hardEnsureButton(){
     hardRemoveDuplicateButtons();
+
+    if (hardIsPrimaryAdmin()) {
+      const existing = document.getElementById('nca-hard-register-btn');
+      if (existing) existing.style.display = 'none';
+      return existing;
+    }
 
     let btn = document.getElementById('nca-hard-register-btn');
     if (!btn) {
